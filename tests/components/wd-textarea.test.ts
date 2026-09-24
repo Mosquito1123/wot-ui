@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils'
 import WdTextarea from '@/uni_modules/wot-ui/components/wd-textarea/wd-textarea.vue'
 import WdIcon from '@/uni_modules/wot-ui/components/wd-icon/wd-icon.vue'
 import { isH5 } from '@/uni_modules/wot-ui/common/util'
+import { FORM_ITEM_VALIDATE_KEY } from '@/uni_modules/wot-ui/components/wd-form-item/types'
 import { describe, test, expect, vi } from 'vitest'
 
 async function flushClear(wrapper: ReturnType<typeof mount>) {
@@ -310,6 +311,78 @@ describe('WdTextarea', () => {
       expect(blurEvents?.[0]?.[0]).toEqual({ value: '', cursor: 3 })
     }
 
+    vi.useRealTimers()
+  })
+
+  test('未聚焦且 focusWhenClear=true 时清空不留下 clearing，后续 blur 仍会校验', async () => {
+    vi.useFakeTimers()
+    const validateByTrigger = vi.fn().mockResolvedValue(undefined)
+    const internalChildren: unknown[] = []
+    const wrapper = mount(WdTextarea, {
+      props: {
+        modelValue: 'abc',
+        clearable: true,
+        clearTrigger: 'always',
+        focusWhenClear: true,
+        focus: true
+      },
+      global: {
+        provide: {
+          [FORM_ITEM_VALIDATE_KEY as symbol]: {
+            link(child: unknown) {
+              internalChildren.push(child)
+            },
+            unlink(child: unknown) {
+              const index = internalChildren.indexOf(child)
+              if (index >= 0) internalChildren.splice(index, 1)
+            },
+            children: [],
+            internalChildren,
+            validateByTrigger
+          }
+        }
+      }
+    })
+
+    expect((wrapper.vm as any).focusing).toBe(false)
+    expect((wrapper.vm as any).focused).toBe(true)
+
+    await flushClear(wrapper)
+
+    if (isH5) {
+      expect((wrapper.vm as any).clearing).toBe(false)
+      const blurPromise = (wrapper.vm as any).handleBlur({ detail: { cursor: 1 } })
+      await vi.advanceTimersByTimeAsync(200)
+      await blurPromise
+      expect((wrapper.emitted('blur') as any[])?.[0]?.[0]).toEqual({ value: '', cursor: 1 })
+      expect(validateByTrigger).toHaveBeenCalledWith('blur')
+    }
+
+    vi.useRealTimers()
+  })
+
+  test('H5 回焦前若焦点已在其他控件上则不再抢回', async () => {
+    vi.useFakeTimers()
+    const other = document.createElement('input')
+    document.body.appendChild(other)
+    other.focus()
+
+    const wrapper = mount(WdTextarea, {
+      props: {
+        modelValue: 'abc',
+        clearable: true,
+        clearTrigger: 'always',
+        focusWhenClear: true
+      }
+    })
+
+    await flushClear(wrapper)
+    if (isH5) {
+      expect((wrapper.vm as any).focused).toBe(false)
+      expect(document.activeElement).toBe(other)
+    }
+
+    other.remove()
     vi.useRealTimers()
   })
 

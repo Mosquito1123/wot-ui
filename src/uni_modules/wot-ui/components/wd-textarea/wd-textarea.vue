@@ -192,13 +192,30 @@ function formatValue(value: string | number) {
  * 把 H5 原生 textarea 的显示值立刻清空。
  * uni-h5 会把 modelValue debounce 约 100ms 后才写入内部 state，这段时间节点仍画着旧文本。
  */
-function syncH5ClearedValue() {
+function getH5TextareaElement() {
   const instance = textareaRef.value as { $el?: HTMLElement } | HTMLElement | null
-  if (!instance) return
+  if (!instance) return null
   const root = (instance as { $el?: HTMLElement }).$el ?? (instance as HTMLElement)
-  if (!root || typeof root.tagName !== 'string') return
-  const textarea = root.tagName === 'TEXTAREA' ? (root as HTMLTextAreaElement) : root.querySelector?.('textarea')
+  if (!root || typeof root.tagName !== 'string') return null
+  return root.tagName === 'TEXTAREA' ? (root as HTMLTextAreaElement) : root.querySelector?.('textarea') ?? null
+}
+
+function syncH5ClearedValue() {
+  const textarea = getH5TextareaElement()
   if (textarea) textarea.value = ''
+}
+
+/** 等待回焦的 100ms 内，焦点若已落到其他可聚焦控件上，就不再抢回来。 */
+function anotherControlHasFocus() {
+  if (typeof document === 'undefined') return false
+  const active = document.activeElement as HTMLElement | null
+  if (!active || active === document.body || active === document.documentElement) return false
+
+  const textarea = getH5TextareaElement()
+  if (textarea && (active === textarea || textarea.contains(active))) return false
+  if (typeof active.closest === 'function' && active.closest('.wd-textarea__clear, .wd-textarea__clear-trigger')) return false
+  if (typeof active.matches !== 'function') return false
+  return active.matches('input, textarea, select, button, a[href], [contenteditable="true"], [tabindex]:not([tabindex="-1"])')
 }
 
 /**
@@ -217,17 +234,19 @@ async function clearOnH5() {
   syncH5ClearedValue()
 
   if (shouldFocus && !wasFocusing) {
-    // 比 uni-h5 的 100ms debounce 略晚，确保 focus 切换时内部值已是空字符串
+    // 比 uni-h5 的 100ms debounce 略晚，确保 focus 切换时内部值已是空字符串。
+    // 此路径没有可消费 clearing 的原生 blur，不能把 clearing 置 true，否则会吞掉之后真正的失焦校验。
     await pause(100)
     syncH5ClearedValue()
-    if (focused.value) {
-      clearing.value = true
-      focused.value = false
-      await nextTick()
-      syncH5ClearedValue()
+    if (!anotherControlHasFocus()) {
+      if (focused.value) {
+        focused.value = false
+        await nextTick()
+        syncH5ClearedValue()
+      }
+      focused.value = true
+      focusing.value = true
     }
-    focused.value = true
-    focusing.value = true
   } else if (shouldFocus) {
     focusing.value = true
   }
