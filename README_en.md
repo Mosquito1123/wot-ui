@@ -120,6 +120,14 @@ After donating, your nickname and message will be displayed on the [donor list](
 <img src="https://wot-ui.cn/alipayQrcode.jpg" width="200" height="200" />
 </p>
 
+## Sponsors
+
+| Sponsor | Description | Links |
+| --- | --- | --- |
+| [![AI-native Java full-stack framework](https://sponsor.wot-ui.cn/assets/sponsor/ruoyi-uniapp.png)](https://license.ruoyi.plus/flm/s/100003) | **AI-native Java full-stack framework** | [Visit website](https://license.ruoyi.plus/flm/s/100003) |
+| [![Reliable model API gateway, 50% off](https://sponsor.wot-ui.cn/assets/sponsor/kaopu-API.png)](https://ctmoai.com) | **Reliable model API gateway with 50% off for all models** | [Visit website](https://ctmoai.com) |
+| [![AICentOS enterprise LLM service platform](https://sponsor.wot-ui.cn/assets/sponsor/T-API.png)](https://www.aicentos.com/) | A high-availability, low-latency and cost-effective LLM access service for enterprises and developers, with stable support for **OpenAI Codex, Claude Code, Grok, Gemini** and other popular models and developer tools.<br><br>It provides a unified API that is easy to integrate and suitable for AI programming, intelligent application development, enterprise automation and LLM integration.<br><br>🎁 **New users receive ¥1 in trial credit** | [Official website](https://www.aicentos.com/)<br>[Service status & SLA](https://status.aicentos.com/)<br>[Integration docs](https://docs.aicentos.com/) |
+
 ## Acknowledgments
 
 - [wot-design](https://github.com/jd-ftf/wot-design-mini) - Thanks to the wot-design team for years of continuous maintenance, which allowed wot-ui to build on a strong foundation.
@@ -131,4 +139,3 @@ After donating, your nickname and message will be displayed on the [donor list](
 This project is licensed under the [MIT License](https://en.wikipedia.org/wiki/MIT_License). Feel free to enjoy and participate in open source.
 
 [![Star History Chart](https://api.star-history.com/chart?repos=wot-ui/wot-ui&type=date&legend=top-left)](https://www.star-history.com/?type=date&repos=wot-ui%2Fwot-ui)
-

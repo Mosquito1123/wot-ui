@@ -122,6 +122,14 @@
 <img src="https://wot-ui.cn/alipayQrcode.jpg" width="200" height="200" />
 </p>
 
+## 赞助商
+
+| 赞助商 | 简介 | 相关链接 |
+| --- | --- | --- |
+| [![AI原生架构 Java全栈框架](https://sponsor.wot-ui.cn/assets/sponsor/ruoyi-uniapp.png)](https://license.ruoyi.plus/flm/s/100003) | **AI原生架构 Java全栈框架** | [访问官网](https://license.ruoyi.plus/flm/s/100003) |
+| [![靠谱中转国模全场5折](https://sponsor.wot-ui.cn/assets/sponsor/kaopu-API.png)](https://ctmoai.com) | **靠谱中转国模全场 5 折** | [访问官网](https://ctmoai.com) |
+| [![AICentOS 企业级大模型服务平台](https://sponsor.wot-ui.cn/assets/sponsor/T-API.png)](https://www.aicentos.com/) | 专为企业与开发者打造的高可用、低延迟、高性价比大模型接入服务，稳定支持 **OpenAI Codex、Claude Code、Grok、Gemini** 等主流模型与开发工具。<br><br>统一 API 接口，适用于 AI 编程、智能应用开发、企业自动化及大模型集成等场景。<br><br>🎁 **新用户注册即赠 1 元体验额度** | [官方网站](https://www.aicentos.com/)<br>[服务状态与 SLA](https://status.aicentos.com/)<br>[接入文档](https://docs.aicentos.com/) |
+
 ## 鸣谢
 
 - [wot-design](https://github.com/jd-ftf/wot-design-mini) - 感谢 wot-design 团队多年来的不断维护，让 wot-ui 能够站在巨人的肩膀上。
