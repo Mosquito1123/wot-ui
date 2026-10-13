@@ -393,6 +393,21 @@ async function scrollIntoView() {
     activeDate = Date.now()
   }
 
+  // 选中日期超出可选范围时，月份列表中没有对应项，compareMonth 无法命中，
+  // top 会一直累加到最底部。优先夹到 [minDate, maxDate]；结果仍无效时回退到当前时间。
+  const { minDate, maxDate } = props
+  if (Number.isFinite(minDate) && Number.isFinite(maxDate) && minDate <= maxDate) {
+    if (activeDate < minDate) {
+      activeDate = minDate
+    } else if (activeDate > maxDate) {
+      activeDate = maxDate
+    }
+  }
+
+  if (!Number.isFinite(activeDate)) {
+    activeDate = Date.now()
+  }
+
   let top: number = 0
   let activeMonthIndex = -1
   for (let index = 0; index < months.value.length; index++) {
