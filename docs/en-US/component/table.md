@@ -79,6 +79,19 @@ Demo page corresponding content: Custom index column centered display.
 
 Demo page corresponding content: Score column additionally displays year-over-year information.
 
+::: warning Overlays inside slots
+The table's scroll area clips content outside its boundaries, and virtual cell positioning can also affect fixed-position overlays inside cells. When using overlay components such as `wd-picker` or `wd-popup` in the `value` slot, explicitly enable `root-portal` on the overlay component (it defaults to `false`) to avoid misplaced or clipped popups and backdrops. This applies to both regular and virtual tables.
+
+For example, add `root-portal` to your existing Picker / Popup usage:
+
+```html
+<wd-picker v-model="value" v-model:visible="showPicker" :columns="columns" root-portal />
+<wd-popup v-model="showPopup" position="bottom" root-portal>Popup content</wd-popup>
+```
+
+Root portal rendering supports H5, App, WeChat Mini Programs, and Alipay Mini Programs (excluding DingTalk). See [RootPortal](./root-portal.md). On other platforms, or when using a custom overlay without `root-portal` support, place the overlay outside the table and control its visibility from a trigger inside the cell.
+:::
+
 ### Merge Cells
 
 Control cell spanning through `span-method`. Callback returns `{ rowspan, colspan }`. When returning empty, it is processed as `{ rowspan: 1, colspan: 1 }`.
@@ -194,6 +207,8 @@ In WeChat Mini Programs, uni-app reuses scoped slot instances. If the `value` sl
 ```
 
 Cells may be unmounted or reused during virtual scrolling. Store input values, selection state, and other data that must persist in the row data or external state, rather than relying solely on the child component's internal state.
+
+`root-portal` only changes where the overlay is rendered; it does not prevent its owning cell from being unmounted. If the overlay must stay open after its row leaves the virtual rendering range, place the overlay component outside the table and keep the active row and visibility state outside the cell as well.
 
 ## Component States
 

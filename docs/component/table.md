@@ -119,6 +119,19 @@ function handleRowClick({ rowIndex }: { rowIndex: number }) {
 </wd-table>
 ```
 
+::: warning 插槽内使用浮层
+表格滚动区域会裁剪超出边界的内容，虚拟滚动中的单元格定位也会影响内部浮层的固定定位。在 `value` 插槽中使用 `wd-picker`、`wd-popup` 等浮层组件时，请在浮层组件上显式设置 `root-portal`（默认为 `false`），避免弹窗或遮罩错位、被裁剪。此限制同时适用于普通表格和虚拟表格。
+
+例如，已有的 Picker / Popup 用法应加上 `root-portal`：
+
+```html
+<wd-picker v-model="value" v-model:visible="showPicker" :columns="columns" root-portal />
+<wd-popup v-model="showPopup" position="bottom" root-portal>弹窗内容</wd-popup>
+```
+
+根节点传送支持 H5、App、微信小程序和支付宝小程序（不含钉钉），详见 [RootPortal 根节点传送](./root-portal.md)。在其他平台，或使用不支持 `root-portal` 的自定义浮层时，应将浮层放在表格外部，由单元格中的触发器控制显示。
+:::
+
 ### 合并单元格
 
 通过 `span-method` 控制单元格跨行跨列。回调接收 `{ row, column, rowIndex, columnIndex }` 四个参数，返回 `{ rowspan, colspan }` 或 `void`（等同 `{ rowspan: 1, colspan: 1 }`）。`rowspan`/`colspan` 为 `0` 表示该单元格被合并隐藏。
@@ -309,6 +322,8 @@ const virtualData = Array.from({ length: 10000 }, (_, index) => ({
 ```
 
 虚拟滚动中的单元格可能被卸载或复用。需要保留的输入值、选中状态等业务数据应存放在行数据或外部状态中，不应只依赖子组件的内部状态。
+
+`root-portal` 只改变浮层的渲染位置，不会阻止所属单元格被卸载。如果需要在该行滚出虚拟渲染范围后仍保持浮层打开，请将浮层组件放在表格外部，并在外部保存当前编辑行与显隐状态。
 
 ## 组件状态
 
