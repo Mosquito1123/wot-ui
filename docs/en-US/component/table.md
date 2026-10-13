@@ -181,6 +181,20 @@ const virtualData = Array.from({ length: 10000 }, (_, index) => ({
 }))
 ```
 
+In WeChat Mini Programs, uni-app reuses scoped slot instances. If the `value` slot contains a custom component with internal state, wrap it in a single-item `v-for` with a stable business `key` to prevent state from carrying over to another row after scrolling. In the example below, `row-editor` represents your own custom component, and `row.id` must be a stable, unique identifier in your data.
+
+```html
+<wd-table-column prop="remark" label="Remark" :width="200">
+  <template #value="{ row }">
+    <view v-for="item in [row]" :key="item.id">
+      <row-editor :row="item" />
+    </view>
+  </template>
+</wd-table-column>
+```
+
+Cells may be unmounted or reused during virtual scrolling. Store input values, selection state, and other data that must persist in the row data or external state, rather than relying solely on the child component's internal state.
+
 ## Component States
 
 ### No Border

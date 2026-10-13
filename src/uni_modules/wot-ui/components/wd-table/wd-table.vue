@@ -1,6 +1,14 @@
 <template>
   <view :class="['wd-table', { 'is-border': border }, customClass]" :style="tableStyle">
-    <scroll-view :enable-flex="true" :throttle="false" :scroll-x="true" :scroll-y="scrollY" :style="scrollViewStyle" @scroll="handleScrollThrottled">
+    <scroll-view
+      class="wd-table__scroll"
+      :enable-flex="true"
+      :throttle="false"
+      :scroll-x="true"
+      :scroll-y="scrollY"
+      :style="scrollViewStyle"
+      @scroll="handleScrollThrottled"
+    >
       <view :style="contentWidthStyle">
         <!-- 表头 -->
         <view v-if="showHeader" :class="['wd-table__header', { 'is-sticky': fixedHeader }]" :style="gridColumnsStyle">
@@ -33,7 +41,7 @@
           </view>
         </view>
 
-        <!-- 表体（CSS Grid 布局，虚拟滚动时包含 grid-template-rows） -->
+        <!-- 虚拟表体高度固定，单元格按绝对行号定位，避免跨组件更新时整窗错位。 -->
         <view class="wd-table__body" :style="bodyGridStyle">
           <wd-table-column
             v-if="showIndex"
@@ -103,7 +111,7 @@ const visibleRange = computed(() => {
   const rowH = Number(props.rowHeight) || 44
   const bufferSize = Number(props.buffer) || 5
   const viewportHeight = Number(props.height) || 400
-  const start = Math.max(0, Math.floor(state.scrollTop / rowH) - bufferSize)
+  const start = Math.min(total - 1, Math.max(0, Math.floor(state.scrollTop / rowH) - bufferSize))
   const end = Math.min(total - 1, Math.ceil((state.scrollTop + viewportHeight) / rowH) + bufferSize)
   return { start, end }
 })
@@ -180,8 +188,8 @@ const gridColumnsStyle = computed(() => {
 })
 
 /**
- * 表体 Grid 样式（含列定义 + 虚拟滚动时的行定义）
- * @returns 包含 grid-template-columns 和可选的 grid-template-rows 的样式字符串
+ * 表体 Grid 样式，虚拟模式下固定总高度，滚动时不再改变网格原点。
+ * @returns 列定义、基础行高度及表体总高度的样式字符串
  */
 const bodyGridStyle = computed(() => {
   const style: Record<string, string> = {
@@ -190,7 +198,9 @@ const bodyGridStyle = computed(() => {
   }
   if (props.virtual && props.data.length > 0) {
     const rowH = Number(props.rowHeight) || 44
-    style['grid-template-rows'] = `repeat(${props.data.length}, ${rowH}px)`
+    // 所有单元格共用一个基础网格行，避免 Grid 行数上限及父子组件分批更新导致的跳动。
+    style['grid-template-rows'] = `${rowH}px`
+    style.height = `${props.data.length * rowH}px`
   }
   return objToStyle(style)
 })
