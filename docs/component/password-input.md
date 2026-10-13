@@ -2,7 +2,7 @@
 
 带网格的密码输入组件，适用于支付密码、短信验证码等场景，通常与 [Keyboard 键盘](./keyboard.md) 组件配合使用。
 
-`wd-password-input` 仅负责展示输入值、光标和提示信息，不直接处理录入逻辑。通常将 `focused` 与键盘显隐状态绑定，并在 `focus` 事件中打开键盘。
+`wd-password-input` 默认只展示输入值、光标和提示信息，录入交给 `wd-keyboard`。`wd-keyboard` 不能粘贴。需要粘贴、系统键盘或短信验证码自动填充时，打开 `native-input`：组件会覆盖一层透明原生输入框，格子、掩码和长度限制保持不变。该能力默认关闭，关闭时行为与原来一致。通常将 `focused` 与键盘显隐状态绑定，并在 `focus` 事件中打开键盘。
 
 ## 组件类型
 
@@ -97,6 +97,20 @@ watch(value, (newVal) => {
 <wd-keyboard v-model="value" v-model:visible="showKeyboard" :maxlength="6" random-key-order />
 ```
 
+### 原生输入
+
+`native-input` 默认关闭。打开后可以直接粘贴，或使用系统键盘输入，适合短信验证码。粘贴内容只保留数字（全角数字会转为半角），并截断到 `length`。此模式下光标跟随原生输入框的聚焦状态，一般不再同时绑定 `wd-keyboard`，避免两套输入一起改值。
+
+```html
+<wd-password-input v-model="value" native-input :mask="false" :length="6" />
+```
+
+```typescript
+import { ref } from 'vue'
+
+const value = ref('')
+```
+
 ## Attributes
 
 | 参数 | 说明 | 类型 | 默认值 |
@@ -107,7 +121,8 @@ watch(value, (newVal) => {
 | error-info | 输入框下方错误提示 | `string` | `''` |
 | gutter | 输入框格子之间的间距，默认单位为 `px` | `number \| string` | `0` |
 | length | 密码长度 | `number` | `6` |
-| focused | 是否处于聚焦状态；聚焦时显示光标，通常与键盘显隐状态联动 | `boolean` | `true` |
+| focused | 是否处于聚焦状态；聚焦时显示光标，通常与键盘显隐状态联动。`native-input` 开启时，光标改为跟随原生输入框聚焦 | `boolean` | `true` |
+| native-input ^($LOWEST_VERSION$) | 是否启用原生输入。开启后支持粘贴、系统键盘和短信验证码自动填充；非数字会被过滤，并截断到 `length`。默认关闭 | `boolean` | `false` |
 | custom-class | 根节点自定义类名 | `string` | `''` |
 | custom-style | 根节点自定义样式 | `string` | `''` |
 
@@ -115,7 +130,7 @@ watch(value, (newVal) => {
 
 | 事件名称 | 说明 | 参数 |
 | --- | --- | --- |
-| focus | 点击密码输入框时触发 | `event: Event` |
+| focus | 点击密码输入框时触发；开启 `native-input` 后，在原生输入框聚焦时触发 | `event: Event` |
 
 ## 外部样式类
 

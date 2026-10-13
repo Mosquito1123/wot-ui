@@ -38,5 +38,13 @@ export const passwordInputProps = {
   /**
    * 是否已聚焦，聚焦时会显示光标
    */
-  focused: makeBooleanProp(true)
+  focused: makeBooleanProp(true),
+  /**
+   * 是否启用原生输入，以支持粘贴、系统键盘和短信验证码自动填充。
+   * 开启后仍用格子展示内容；粘贴和非数字字符会被过滤为数字，并截断到 length。
+   * 关闭时保持仅展示、由 Keyboard 录入的行为。
+   * 类型: boolean
+   * 默认值: false
+   */
+  nativeInput: makeBooleanProp(false)
 }

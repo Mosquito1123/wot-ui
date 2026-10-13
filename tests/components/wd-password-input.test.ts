@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import WdPasswordInput from '../../src/uni_modules/wot-ui/components/wd-password-input/wd-password-input.vue'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 
 describe('WdPasswordInput', () => {
   test('基本渲染', () => {
@@ -62,6 +62,174 @@ describe('WdPasswordInput', () => {
 
     const emitted = wrapper.emitted() as Record<string, any[]>
     expect(emitted['focus']).toBeTruthy()
+  })
+
+  test('默认不渲染原生输入框', () => {
+    const wrapper = mount(WdPasswordInput)
+    expect(wrapper.find('input').exists()).toBe(false)
+    expect(wrapper.find('.wd-password-input__cursor').exists()).toBeTruthy()
+  })
+
+  test('原生输入过滤粘贴内容并限制长度', async () => {
+    const wrapper = mount(WdPasswordInput, {
+      props: {
+        nativeInput: true,
+        mask: false,
+        length: 6,
+        modelValue: ''
+      }
+    })
+
+    expect(wrapper.find('input').exists()).toBe(true)
+    expect(wrapper.find('.wd-password-input__cursor').exists()).toBe(false)
+
+    const preventDefault = vi.fn()
+    await (wrapper.vm as any).handleNativePaste({
+      clipboardData: {
+        getData: () => '验证码１２３-45678'
+      },
+      preventDefault
+    })
+
+    const emitted = wrapper.emitted() as Record<string, any[]>
+    expect(preventDefault).toHaveBeenCalled()
+    expect(emitted['update:modelValue'][0][0]).toBe('123456')
+  })
+
+  test('原生输入按键入内容过滤数字', async () => {
+    const wrapper = mount(WdPasswordInput, {
+      props: {
+        nativeInput: true,
+        length: 4,
+        modelValue: '12'
+      }
+    })
+
+    await (wrapper.vm as any).handleNativeInput({ detail: { value: '12ab90' } })
+
+    const emitted = wrapper.emitted() as Record<string, any[]>
+    expect(emitted['update:modelValue'][0][0]).toBe('1290')
+  })
+
+  test('原生输入无数字的粘贴不改值', async () => {
+    const wrapper = mount(WdPasswordInput, {
+      props: {
+        nativeInput: true,
+        modelValue: '123'
+      }
+    })
+
+    await (wrapper.vm as any).handleNativePaste({
+      clipboardData: {
+        getData: () => 'abc'
+      },
+      preventDefault: vi.fn()
+    })
+
+    expect(wrapper.emitted('update:modelValue')).toBeFalsy()
+  })
+
+  test('原生输入聚焦后显示对应格子光标', async () => {
+    const wrapper = mount(WdPasswordInput, {
+      props: {
+        nativeInput: true,
+        focused: true,
+        modelValue: '12'
+      }
+    })
+
+    expect(wrapper.find('.wd-password-input__cursor').exists()).toBe(false)
+
+    const event = new Event('focus')
+    await (wrapper.vm as any).handleNativeFocus(event)
+
+    const items = wrapper.findAll('.wd-password-input__item')
+    expect(items[2].find('.wd-password-input__cursor').exists()).toBe(true)
+    expect(wrapper.emitted('focus')?.[0]?.[0]).toBe(event)
+
+    await (wrapper.vm as any).handleNativeBlur()
+    expect(wrapper.find('.wd-password-input__cursor').exists()).toBe(false)
+  })
+
+  test('原生输入点击格子不重复触发 focus', async () => {
+    const wrapper = mount(WdPasswordInput, {
+      props: {
+        nativeInput: true
+      }
+    })
+
+    await wrapper.find('.wd-password-input__security').trigger('touchstart')
+    expect(wrapper.emitted('focus')).toBeFalsy()
+  })
+
+  test('原生输入掩码和明文展示保持不变', () => {
+    const masked = mount(WdPasswordInput, {
+      props: {
+        nativeInput: true,
+        modelValue: '12'
+      }
+    })
+    expect(masked.findAll('.wd-password-input__mask')[0].attributes('style')).toContain('visible')
+
+    const plain = mount(WdPasswordInput, {
+      props: {
+        nativeInput: true,
+        mask: false,
+        modelValue: '12'
+      }
+    })
+    expect(plain.findAll('.wd-password-input__item')[0].text()).toBe('1')
+    expect(plain.find('input').attributes('text-content-type')).toBe('one-time-code')
+    expect(masked.find('input').attributes('text-content-type')).toBe('off')
+    expect(plain.find('input').attributes('type')).toBe('text')
+    expect(plain.find('input').attributes('inputmode')).toBe('numeric')
+  })
+
+  test('粘贴后延迟的原始 input 不会覆盖过滤结果', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(WdPasswordInput, {
+        props: {
+          nativeInput: true,
+          length: 6,
+          modelValue: ''
+        }
+      })
+
+      await (wrapper.vm as any).handleNativePaste({
+        clipboardData: {
+          getData: () => '12a345678'
+        },
+        preventDefault: vi.fn()
+      })
+      await (wrapper.vm as any).handleNativeInput({ detail: { value: '验证码12a345678' } })
+
+      const emitted = wrapper.emitted('update:modelValue') as string[][]
+      expect(emitted).toHaveLength(1)
+      expect(emitted[0][0]).toBe('123456')
+
+      await vi.advanceTimersByTimeAsync(200)
+      await (wrapper.vm as any).handleNativeInput({ detail: { value: '98' } })
+      expect((wrapper.emitted('update:modelValue') as string[][])[1][0]).toBe('98')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('原生输入从 target 读取值且相同值不重复派发', async () => {
+    const wrapper = mount(WdPasswordInput, {
+      props: {
+        nativeInput: true,
+        length: 6,
+        modelValue: '123'
+      }
+    })
+
+    await (wrapper.vm as any).handleNativeInput({ target: { value: '123abc' } })
+    expect(wrapper.emitted('update:modelValue')).toBeFalsy()
+
+    await (wrapper.vm as any).handleNativeInput({ target: { value: '1234' } })
+    expect((wrapper.emitted('update:modelValue') as string[][])[0][0]).toBe('1234')
   })
 
   test('完成事件', () => {
