@@ -12,7 +12,13 @@ describe('WdSwiper', () => {
 
     expectTypeOf<SwiperProps['indicator']>().toEqualTypeOf<boolean | SwiperIndicatorProps>()
     expectTypeOf<ComponentIndicator>().toEqualTypeOf<boolean | SwiperIndicatorProps>()
-    expectTypeOf<NonNullable<SwiperIndicatorProps['type']>>().toEqualTypeOf<'dots' | 'dots-bar' | 'fraction'>()
+    expectTypeOf<'dots' | 'dots-bar' | 'fraction'>().toMatchTypeOf<NonNullable<SwiperIndicatorProps['type']>>()
+
+    // 单独声明时 type 会放宽为 string，这是文档对象写法在业务代码里的常见形式
+    const fractionIndicator = { type: 'fraction' }
+    expectTypeOf(fractionIndicator).toMatchTypeOf<SwiperProps['indicator']>()
+    expectTypeOf(fractionIndicator).toMatchTypeOf<ComponentIndicator>()
+    expectTypeOf<true | false>().toMatchTypeOf<SwiperProps['indicator']>()
   })
 
   test.each([{ type: 'dots' }, { type: 'dots-bar' }, { type: 'fraction' }] satisfies SwiperIndicatorProps[])('渲染 $type 指示器配置', (indicator) => {

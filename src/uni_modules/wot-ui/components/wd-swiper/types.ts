@@ -1,6 +1,6 @@
 import type { ExtractPropTypes, PropType } from 'vue'
 import { baseProps, makeBooleanProp, makeNumberProp, makeNumericProp, makeStringProp, numericProp } from '../../common/props'
-import type { SwiperNavProps } from '../wd-swiper-nav/types'
+import type { SwiperIndicatorType, SwiperNavProps } from '../wd-swiper-nav/types'
 import type { ImageMode } from '../wd-img/types'
 
 /**
@@ -40,9 +40,14 @@ export interface SwiperItem {
 }
 
 /**
- * 指示器配置，所有字段均可选，type 仅支持 dots、dots-bar 和 fraction。
+ * 指示器配置，所有字段均可选。
+ * `type` 推荐 `dots`、`dots-bar`、`fraction`。
+ * `string & Record<never, never>` 与 string 等价，但不会把字面量联合折叠掉：
+ * 单独声明的 `{ type: 'fraction' }` 会被放宽成 `{ type: string }`，这样仍能赋值，并保留补全。
  */
-export type SwiperIndicatorProps = Partial<SwiperNavProps>
+export type SwiperIndicatorProps = Partial<Omit<SwiperNavProps, 'type'>> & {
+  type?: SwiperIndicatorType | (string & Record<never, never>)
+}
 
 export const swiperProps = {
   ...baseProps,
@@ -171,7 +176,9 @@ export const swiperProps = {
    */
   indicator: {
     type: [Boolean, Object] as PropType<boolean | SwiperIndicatorProps>,
-    default: true
+    // 默认值写成完整联合。Vue 在 PropType 推断失败时会退回 default 的类型，
+    // 若这里只剩 boolean，对象写法会被收窄成 boolean 并报 TS2322。
+    default: true as boolean | SwiperIndicatorProps
   },
 
   /**

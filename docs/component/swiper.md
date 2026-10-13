@@ -54,7 +54,7 @@ const swiperList = ref([
 
 ### TypeScript 指示器配置
 
-将指示器配置单独声明为变量时，使用 `SwiperIndicatorProps` 提供类型约束，避免 `type` 被推断为普通 `string`。
+`indicator` 接受布尔值，也接受 `{ type: 'fraction' }`。单独声明该对象时，`type` 会被放宽成 `string`，组件属性同样接受这种写法。
 
 ```vue
 <script setup lang="ts">
@@ -87,7 +87,7 @@ function useDotsBar() {
 }
 ```
 
-`type` 仅支持 `dots`、`dots-bar`、`fraction`，拼写错误会在类型检查时被发现。
+推荐的 `type` 为 `dots`、`dots-bar`、`fraction`。`satisfies` 或类型标注可以保留字面量并继续获得这三项的补全。
 
 ## 组件变体
 
@@ -387,7 +387,7 @@ const videoList = ref([
 
 ### SwiperIndicatorProps
 
-指示器配置对象，类型为 `Partial<SwiperNavProps>`，所有字段均可选。可从 `@/uni_modules/wot-ui/components/wd-swiper/types` 导入。
+指示器配置对象，字段与 `Partial<SwiperNavProps>` 一致，均可选。`type` 推荐 `dots`、`dots-bar`、`fraction`，并接受被放宽的 `string`，因此 `{ type: 'fraction' }` 可以单独声明后再传入。可从 `@/uni_modules/wot-ui/components/wd-swiper/types` 导入。
 
 ### SwiperItem
 

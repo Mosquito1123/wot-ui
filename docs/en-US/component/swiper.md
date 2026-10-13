@@ -54,7 +54,7 @@ const swiperList = ref([
 
 ### TypeScript Indicator Configuration
 
-When declaring the indicator configuration as a separate variable, use `SwiperIndicatorProps` to prevent `type` from being widened to `string`.
+`indicator` accepts a boolean or `{ type: 'fraction' }`. When that object is declared on its own, `type` is widened to `string`, and the prop accepts that widened value.
 
 ```vue
 <script setup lang="ts">
@@ -87,7 +87,7 @@ function useDotsBar() {
 }
 ```
 
-`type` only accepts `dots`, `dots-bar`, and `fraction`, so misspelled values are caught during type checking.
+Recommended `type` values are `dots`, `dots-bar`, and `fraction`. `satisfies` or a type annotation keeps the literal and still offers completion for those three values.
 
 ## Component Variants
 
@@ -387,7 +387,7 @@ Indicator type, optional values are `dots`, `dots-bar`, `fraction`.
 
 ### SwiperIndicatorProps
 
-Indicator configuration object, defined as `Partial<SwiperNavProps>` with all fields optional. Import it from `@/uni_modules/wot-ui/components/wd-swiper/types`.
+Indicator configuration object. Fields match `Partial<SwiperNavProps>` and are all optional. `type` recommends `dots`, `dots-bar`, and `fraction`, and also accepts a widened `string`, so `{ type: 'fraction' }` can be declared separately and then passed in. Import it from `@/uni_modules/wot-ui/components/wd-swiper/types`.
 
 ### SwiperItem
 
