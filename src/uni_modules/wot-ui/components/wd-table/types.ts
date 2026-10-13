@@ -108,6 +108,7 @@ export const tableProps = {
   rowHeight: makeNumericProp(44),
   /**
    * 可视区域上下各额外预渲染的行数
+   * 小数向下取整，负数归零，非有限值使用默认值 5；支持设为 0
    * 类型: number
    * 默认值: 5
    */

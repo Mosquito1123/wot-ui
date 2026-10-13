@@ -79,8 +79,8 @@ Demo page corresponding content: Custom index column centered display.
 
 Demo page corresponding content: Score column additionally displays year-over-year information.
 
-::: warning Overlays inside slots
-The table's scroll area clips content outside its boundaries, and virtual cell positioning can also affect fixed-position overlays inside cells. When using overlay components such as `wd-picker` or `wd-popup` in the `value` slot, explicitly enable `root-portal` on the overlay component (it defaults to `false`) to avoid misplaced or clipped popups and backdrops. This applies to both regular and virtual tables.
+::: warning Overlays inside virtual table slots
+When `virtual` is enabled, clipping of the table's scroll area and cell positioning can affect overlays inside cells. When using overlay components such as `wd-picker` or `wd-popup` in the `value` slot, explicitly enable `root-portal` on the overlay component (it defaults to `false`) to avoid misplaced or clipped popups and backdrops. Regular tables do not use these virtual scrolling clipping and transform styles.
 
 For example, add `root-portal` to your existing Picker / Popup usage:
 
@@ -210,6 +210,8 @@ Cells may be unmounted or reused during virtual scrolling. Store input values, s
 
 `root-portal` only changes where the overlay is rendered; it does not prevent its owning cell from being unmounted. If the overlay must stay open after its row leaves the virtual rendering range, place the overlay component outside the table and keep the active row and visibility state outside the cell as well.
 
+For virtual tables, the CSS variable `--wot-table-scroll-clip-inset` adjusts the vertical inset of the scroll viewport's clipping region. It only controls the inset distance: setting it to `0` still clips content outside the viewport. It does not disable clipping or replace `root-portal` on overlay components.
+
 ## Component States
 
 ### No Border
@@ -257,7 +259,7 @@ const paginationData = computed(() => {
 | span-method | Cell merge method, returns `{ rowspan, colspan }` | `SpanMethod` | - |
 | virtual | Whether to enable virtual scrolling | `boolean` | `false` |
 | row-height | Virtual scrolling row height | `number` | `44` |
-| buffer | Virtual scrolling pre-render rows above and below | `number` | `5` |
+| buffer | Extra rows rendered above and below the virtual viewport; supports `0`, rounds fractions down, clamps negative values to `0`, and uses the default for non-finite values | `number` | `5` |
 | custom-class | Root node custom class name | `string` | `''` |
 | custom-style | Root node custom style | `string` | `''` |
 

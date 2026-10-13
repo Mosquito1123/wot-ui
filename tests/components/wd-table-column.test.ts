@@ -285,6 +285,64 @@ describe('WdTableColumn 虚拟插槽', () => {
     }
   })
 
+  test.each([
+    { buffer: 0, start: 10, end: 18, capacity: 10 },
+    { buffer: 0.25, start: 10, end: 18, capacity: 10 },
+    { buffer: 1.75, start: 9, end: 19, capacity: 12 },
+    { buffer: -3, start: 10, end: 18, capacity: 10 },
+    { buffer: NaN, start: 5, end: 23, capacity: 20 },
+    { buffer: Infinity, start: 5, end: 23, capacity: 20 },
+    { buffer: 10000, start: 0, end: 99, capacity: 100 }
+  ])('buffer=$buffer 时按整数行渲染且槽位容量有界', async ({ buffer, start, end, capacity }) => {
+    const { wrapper, table, column } = await mountVirtualTable()
+    await wrapper.setData({
+      rows: Array.from({ length: 100 }, (_, id) => ({ id })),
+      virtualProps: { height: 400, rowHeight: 50, buffer }
+    })
+    const vm = table.vm as any
+    vm.state.scrollTop = 500
+    await nextTick()
+    expect(vm.visibleRange).toEqual({ start, end })
+    expect(vm.virtualSlotCount).toBe(capacity)
+    for (const scrollTop of [500, 501, 0, 4900]) {
+      vm.state.scrollTop = scrollTop
+      await nextTick()
+      const range = vm.visibleRange
+      const expected = Array.from({ length: range.end - range.start + 1 }, (_, i) => range.start + i)
+      const inputs = wrapper.findAll('input')
+      expect(inputs.map((input) => Number(input.attributes('data-row'))).sort((a, b) => a - b)).toEqual(expected)
+      expect(inputs).toHaveLength(new Set(expected).size)
+      expect(expected.every(Number.isInteger)).toBe(true)
+      expect(vm.virtualSlotCount).toBe(capacity)
+      if (process.env.UNI_PLATFORM === 'mp-weixin') expect((column.vm as any).cellSlots).toHaveLength(capacity)
+    }
+    // 数据缩减后容量也收缩，避免小数据集仍分配大量隐藏槽位。
+    await wrapper.setData({ rows: [{ id: 0 }, { id: 1 }] })
+    expect(vm.virtualSlotCount).toBe(2)
+    expect(wrapper.findAll('input').map((input) => Number(input.attributes('data-row')))).toEqual([1])
+  })
+
+  test('视口裁剪只在虚拟模式生效，关闭 virtual 后移除', async () => {
+    const css = compileScss('src/uni_modules/wot-ui/components/wd-table/index.scss').css
+    const style = document.createElement('style')
+    style.textContent = css
+    document.head.appendChild(style)
+    try {
+      const selectors = Array.from(style.sheet!.cssRules)
+        .filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule && !!rule.style.getPropertyValue('clip-path'))
+        .map((rule) => rule.selectorText)
+      expect(selectors.length).toBeGreaterThan(0)
+      const { wrapper } = await mountVirtualTable(false)
+      for (const virtual of [false, true, false]) {
+        await wrapper.setData({ virtual })
+        const scroll = wrapper.find('.wd-table__scroll').element
+        expect(selectors.some((selector) => scroll.matches(selector))).toBe(virtual)
+      }
+    } finally {
+      style.remove()
+    }
+  })
+
   test('非虚拟表格保持自然行顺序', async () => {
     const { wrapper, column } = await mountVirtualTable(false)
     expect(wrapper.findAll('input').map((input) => Number(input.attributes('data-row')))).toEqual(Array.from({ length: 1000 }, (_, i) => i))

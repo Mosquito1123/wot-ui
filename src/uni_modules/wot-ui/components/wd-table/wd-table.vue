@@ -2,6 +2,7 @@
   <view :class="['wd-table', { 'is-border': border }, customClass]" :style="tableStyle">
     <scroll-view
       class="wd-table__scroll"
+      :class="{ 'is-virtual': virtual }"
       :enable-flex="true"
       :throttle="false"
       :scroll-x="true"
@@ -109,12 +110,14 @@ const virtualWindow = computed(() => {
     return { start: 0, end: Math.max(0, total - 1), slotCount: 0 }
   }
   const rowH = Number(props.rowHeight) || 44
-  const bufferSize = Number(props.buffer) || 5
+  const buffer = Number(props.buffer)
+  // 缓冲行数必须为非负整数；保留 0，避免非整数行索引及过大的槽位数组。
+  const bufferSize = Number.isFinite(buffer) ? Math.min(total, Math.max(0, Math.floor(buffer))) : 5
   const viewportHeight = Number(props.height) || 400
   const start = Math.min(total - 1, Math.max(0, Math.floor(state.scrollTop / rowH) - bufferSize))
   const end = Math.min(total - 1, Math.ceil((state.scrollTop + viewportHeight) / rowH) + bufferSize)
   // end 包含在窗口中，向上取整最多额外占用两行；不能按首尾收缩后的范围改变容量。
-  const slotCount = Math.ceil(viewportHeight / rowH) + bufferSize * 2 + 2
+  const slotCount = Math.min(total, Math.ceil(viewportHeight / rowH) + bufferSize * 2 + 2)
   return { start, end, slotCount }
 })
 
