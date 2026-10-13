@@ -166,12 +166,13 @@ describe('WdTableColumn 虚拟插槽', () => {
     wrappers.splice(0).forEach((wrapper) => wrapper.unmount())
   })
 
+  /** 挂载带有状态插槽的表格，供窗口移动和组件复用回归测试使用。 */
   async function mountVirtualTable(virtual = true) {
     const wrapper = mount({
       components: { WdTable, WdTableColumn, DraftCell },
-      data: () => ({ rows: Array.from({ length: 1000 }, (_, id) => ({ id })), virtual }),
+      data: () => ({ rows: Array.from({ length: 1000 }, (_, id) => ({ id })), virtual, virtualProps: { height: 400, rowHeight: 50, buffer: 3 } }),
       template: `
-        <wd-table :data="rows" :virtual="virtual" :height="400" :row-height="50" :buffer="3">
+        <wd-table :data="rows" :virtual="virtual" v-bind="virtualProps">
           <wd-table-column prop="id" label="ID" fixed>
             <template #value="{ row }"><draft-cell :row="row" /></template>
           </wd-table-column>
@@ -251,6 +252,39 @@ describe('WdTableColumn 虚拟插槽', () => {
     expect(wrapper.findAll('input')).toHaveLength(0)
   })
 
+  test.each([
+    { height: 320, rowHeight: 64, buffer: 5 },
+    { height: 321, rowHeight: 37.5, buffer: 2 },
+    { height: 100, rowHeight: 80, buffer: 1 }
+  ])('窗口容量覆盖合并后剩余行且首尾移动不改变槽位：%j', async (props) => {
+    const { wrapper, table, column } = await mountVirtualTable()
+    // 测试环境未预处理 useParent 的平台分支，直接注入合并结果，避免依赖列索引注册。
+    ;(column.vm as any).table.getSpan = (rowIndex: number) => ({ rowspan: rowIndex % 4 === 0 ? 2 : rowIndex % 4 === 1 ? 0 : 1, colspan: 1 })
+    await wrapper.setData({ virtualProps: props })
+    const vm = table.vm as any
+    const capacity = vm.virtualSlotCount
+    let previousSlots = new Map<number, number>()
+    for (const scrollTop of [0, 1, props.rowHeight * 20, props.rowHeight * 21 + 1, props.rowHeight * 999, 0]) {
+      vm.state.scrollTop = scrollTop
+      await nextTick()
+      const { start, end } = vm.visibleRange
+      expect(vm.virtualSlotCount).toBe(capacity)
+      expect(end - start + 1).toBeLessThanOrEqual(capacity)
+      const slots = (column.vm as any).cellSlots as Array<{ rowIndex: number }>
+      const rows = slots.filter((slot) => slot.rowIndex >= 0).map((slot) => slot.rowIndex)
+      const expected = Array.from({ length: end - start + 1 }, (_, i) => start + i).filter((row) => row % 4 !== 1)
+      expect([...rows].sort((a, b) => a - b)).toEqual(expected)
+      if (process.env.UNI_PLATFORM === 'mp-weixin') {
+        expect(slots).toHaveLength(capacity)
+        const currentSlots = new Map(slots.filter((slot) => slot.rowIndex >= 0).map((slot) => [slot.rowIndex, slots.indexOf(slot)]))
+        for (const [row, slot] of currentSlots) {
+          if (previousSlots.has(row)) expect(slot).toBe(previousSlots.get(row))
+        }
+        previousSlots = currentSlots
+      }
+    }
+  })
+
   test('非虚拟表格保持自然行顺序', async () => {
     const { wrapper, column } = await mountVirtualTable(false)
     expect(wrapper.findAll('input').map((input) => Number(input.attributes('data-row')))).toEqual(Array.from({ length: 1000 }, (_, i) => i))
@@ -290,6 +324,7 @@ describe('WdTableColumn 虚拟插槽', () => {
             [TABLE_KEY as symbol]: {
               props: { data: [{ id: 0 }, { id: 1 }, { id: 2 }], virtual, height: 400, rowHeight: 50, buffer: 3, border: true },
               visibleRange: ref({ start: 0, end: 2 }),
+              virtualSlotCount: ref(16),
               state: { scrollLeft: 0 },
               children: [],
               internalChildren: [],

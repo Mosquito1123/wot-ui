@@ -100,23 +100,34 @@ const state = reactive({
 const { linkChildren, children } = useChildren<TableColumnInstance, TableProvide>(TABLE_KEY)
 
 /**
- * 当前可视行范围
- * @returns { start, end } 可视区域的行索引范围（含 buffer）
+ * 统一计算虚拟窗口及插槽容量，确保循环缓冲区能够容纳整个窗口。
+ * @returns 可视范围（含 buffer）及不随滚动位置变化的槽位数量
  */
-const visibleRange = computed(() => {
+const virtualWindow = computed(() => {
   const total = props.data.length
   if (!props.virtual || total === 0) {
-    return { start: 0, end: Math.max(0, total - 1) }
+    return { start: 0, end: Math.max(0, total - 1), slotCount: 0 }
   }
   const rowH = Number(props.rowHeight) || 44
   const bufferSize = Number(props.buffer) || 5
   const viewportHeight = Number(props.height) || 400
   const start = Math.min(total - 1, Math.max(0, Math.floor(state.scrollTop / rowH) - bufferSize))
   const end = Math.min(total - 1, Math.ceil((state.scrollTop + viewportHeight) / rowH) + bufferSize)
+  // end 包含在窗口中，向上取整最多额外占用两行；不能按首尾收缩后的范围改变容量。
+  const slotCount = Math.ceil(viewportHeight / rowH) + bufferSize * 2 + 2
+  return { start, end, slotCount }
+})
+
+/** 当前可视行范围（含 buffer）。 */
+const visibleRange = computed(() => {
+  const { start, end } = virtualWindow.value
   return { start, end }
 })
 
-linkChildren({ props, state, visibleRange, rowClick, getIsLastFixed, getFixedLeft, getSpan })
+/** 提供给列组件的循环缓冲区容量。 */
+const virtualSlotCount = computed(() => virtualWindow.value.slotCount)
+
+linkChildren({ props, state, visibleRange, virtualSlotCount, rowClick, getIsLastFixed, getFixedLeft, getSpan })
 
 /** 索引列唯一标识 */
 const indexUUID = uuid()

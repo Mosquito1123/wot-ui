@@ -130,6 +130,8 @@ export type TableProvide = {
   }
   /** 当前可视行范围（虚拟滚动时只渲染此范围内的行） */
   visibleRange: ComputedRef<{ start: number; end: number }>
+  /** 虚拟插槽循环缓冲区容量，由父表格与可视范围统一计算 */
+  virtualSlotCount: ComputedRef<number>
   /**
    * 行点击事件回调
    * @param index - 被点击行的索引

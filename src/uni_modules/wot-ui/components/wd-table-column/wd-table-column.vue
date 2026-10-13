@@ -167,12 +167,7 @@ const cellSlots = computed(() => {
   const configs = cellConfigs.value
   // #ifdef MP-WEIXIN
   if (table.value?.props.virtual && configs.length > 0) {
-    const { height, rowHeight, buffer } = table.value.props
-    const rowH = Number(rowHeight) || 44
-    const viewportHeight = Number(height) || 400
-    const bufferSize = Number(buffer) || 5
-    // visibleRange 的 end 包含在窗口中，并向上取整，最多比完整可视行数多两行。
-    const slotCount = Math.ceil(viewportHeight / rowH) + bufferSize * 2 + 2
+    const slotCount = table.value.virtualSlotCount.value
     const slots: typeof configs = Array.from({ length: slotCount }, (_, index) => ({
       rowIndex: -index - 1,
       value: undefined,
