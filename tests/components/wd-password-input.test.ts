@@ -179,41 +179,124 @@ describe('WdPasswordInput', () => {
       }
     })
     expect(plain.findAll('.wd-password-input__item')[0].text()).toBe('1')
-    expect(plain.find('input').attributes('text-content-type')).toBe('one-time-code')
-    expect(masked.find('input').attributes('text-content-type')).toBe('off')
+    expect(plain.find('input').attributes('autocomplete')).toBe('one-time-code')
+    expect(masked.find('input').attributes('autocomplete')).toBe('one-time-code')
+    expect(plain.find('input').attributes('text-content-type')).toBe('oneTimeCode')
+    expect(masked.find('input').attributes('text-content-type')).toBe('oneTimeCode')
     expect(plain.find('input').attributes('type')).toBe('text')
     expect(plain.find('input').attributes('inputmode')).toBe('numeric')
   })
 
-  test('粘贴后延迟的原始 input 不会覆盖过滤结果', async () => {
-    vi.useFakeTimers()
-    try {
-      const wrapper = mount(WdPasswordInput, {
-        props: {
-          nativeInput: true,
-          length: 6,
-          modelValue: ''
-        }
-      })
+  test('粘贴追加到已有内容后再过滤并截断', async () => {
+    const wrapper = mount(WdPasswordInput, {
+      props: {
+        nativeInput: true,
+        length: 6,
+        modelValue: '12'
+      }
+    })
 
-      await (wrapper.vm as any).handleNativePaste({
-        clipboardData: {
-          getData: () => '12a345678'
-        },
-        preventDefault: vi.fn()
-      })
-      await (wrapper.vm as any).handleNativeInput({ detail: { value: '验证码12a345678' } })
+    const preventDefault = vi.fn()
+    await (wrapper.vm as any).handleNativePaste({
+      clipboardData: {
+        getData: () => '3a４'
+      },
+      preventDefault
+    })
 
-      const emitted = wrapper.emitted('update:modelValue') as string[][]
-      expect(emitted).toHaveLength(1)
-      expect(emitted[0][0]).toBe('123456')
+    expect(preventDefault).toHaveBeenCalled()
+    expect((wrapper.emitted('update:modelValue') as string[][])[0][0]).toBe('1234')
 
-      await vi.advanceTimersByTimeAsync(200)
-      await (wrapper.vm as any).handleNativeInput({ detail: { value: '98' } })
-      expect((wrapper.emitted('update:modelValue') as string[][])[1][0]).toBe('98')
-    } finally {
-      vi.useRealTimers()
-    }
+    const truncated = mount(WdPasswordInput, {
+      props: {
+        nativeInput: true,
+        length: 6,
+        modelValue: '1234'
+      }
+    })
+    await (truncated.vm as any).handleNativePaste({
+      clipboardData: {
+        getData: () => '56-789'
+      },
+      preventDefault: vi.fn()
+    })
+    expect((truncated.emitted('update:modelValue') as string[][])[0][0]).toBe('123456')
+
+    const chained = mount(WdPasswordInput, {
+      props: {
+        nativeInput: true,
+        length: 6,
+        modelValue: ''
+      }
+    })
+    await (chained.vm as any).handleNativePaste({
+      clipboardData: {
+        getData: () => '12'
+      },
+      preventDefault: vi.fn()
+    })
+    await (chained.vm as any).handleNativePaste({
+      clipboardData: {
+        getData: () => '34'
+      },
+      preventDefault: vi.fn()
+    })
+    expect((chained.emitted('update:modelValue') as string[][]).map((item) => item[0])).toEqual(['12', '1234'])
+  })
+
+  test('粘贴后可以立即输入和退格', async () => {
+    const wrapper = mount(WdPasswordInput, {
+      props: {
+        nativeInput: true,
+        length: 6,
+        modelValue: '12'
+      }
+    })
+
+    await (wrapper.vm as any).handleNativePaste({
+      clipboardData: {
+        getData: () => '34'
+      },
+      preventDefault: vi.fn()
+    })
+    await wrapper.setProps({ modelValue: '1234' })
+    await (wrapper.vm as any).handleNativeInput({ detail: { value: '12345' } })
+    await wrapper.setProps({ modelValue: '12345' })
+    await (wrapper.vm as any).handleNativeInput({ detail: { value: '1234' } })
+
+    const emitted = wrapper.emitted('update:modelValue') as string[][]
+    expect(emitted.map((item) => item[0])).toEqual(['1234', '12345', '1234'])
+  })
+
+  test('粘贴原文回写不会覆盖追加结果', async () => {
+    const wrapper = mount(WdPasswordInput, {
+      props: {
+        nativeInput: true,
+        length: 6,
+        modelValue: '12'
+      }
+    })
+
+    const field = { value: '12' }
+    await (wrapper.vm as any).handleNativePaste({
+      target: field,
+      clipboardData: {
+        getData: () => '3a4'
+      },
+      preventDefault: vi.fn()
+    })
+    expect(field.value).toBe('1234')
+
+    field.value = '3a4'
+    await (wrapper.vm as any).handleNativeInput({ target: field, detail: { value: '3a4' } })
+    expect(field.value).toBe('1234')
+
+    field.value = '12345'
+    await (wrapper.vm as any).handleNativeInput({ target: field, detail: { value: '12345' } })
+    expect(field.value).toBe('12345')
+
+    const emitted = wrapper.emitted('update:modelValue') as string[][]
+    expect(emitted.map((item) => item[0])).toEqual(['1234', '12345'])
   })
 
   test('原生输入从 target 读取值且相同值不重复派发', async () => {

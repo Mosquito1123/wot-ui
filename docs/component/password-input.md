@@ -99,7 +99,7 @@ watch(value, (newVal) => {
 
 ### 原生输入
 
-`native-input` 默认关闭。打开后可以直接粘贴，或使用系统键盘输入，适合短信验证码。粘贴内容只保留数字（全角数字会转为半角），并截断到 `length`。此模式下光标跟随原生输入框的聚焦状态，一般不再同时绑定 `wd-keyboard`，避免两套输入一起改值。
+`native-input` 默认关闭。打开后可以直接粘贴，或使用系统键盘输入，适合短信验证码。粘贴会追加到已有内容后面，只保留数字（全角数字会转为半角），再截断到 `length`。短信验证码自动填充不依赖 `mask`：iOS（App）使用 `text-content-type="oneTimeCode"`；H5 使用 `autocomplete="one-time-code"`。uni-app 的 H5 input 会把 `text-content-type` 映射成该 autocomplete，因此 H5 也会带上 `oneTimeCode`。掩码只影响格子展示，不改变原生输入框类型。此模式下光标跟随原生输入框的聚焦状态，一般不再同时绑定 `wd-keyboard`，避免两套输入一起改值。
 
 ```html
 <wd-password-input v-model="value" native-input :mask="false" :length="6" />
@@ -122,7 +122,7 @@ const value = ref('')
 | gutter | 输入框格子之间的间距，默认单位为 `px` | `number \| string` | `0` |
 | length | 密码长度 | `number` | `6` |
 | focused | 是否处于聚焦状态；聚焦时显示光标，通常与键盘显隐状态联动。`native-input` 开启时，光标改为跟随原生输入框聚焦 | `boolean` | `true` |
-| native-input ^($LOWEST_VERSION$) | 是否启用原生输入。开启后支持粘贴、系统键盘和短信验证码自动填充；非数字会被过滤，并截断到 `length`。默认关闭 | `boolean` | `false` |
+| native-input ^($LOWEST_VERSION$) | 是否启用原生输入。开启后支持粘贴、系统键盘和短信验证码自动填充。粘贴追加到已有内容后过滤为数字，并截断到 `length`。自动填充不依赖 `mask` | `boolean` | `false` |
 | custom-class | 根节点自定义类名 | `string` | `''` |
 | custom-style | 根节点自定义样式 | `string` | `''` |
 

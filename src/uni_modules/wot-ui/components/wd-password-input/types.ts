@@ -41,8 +41,9 @@ export const passwordInputProps = {
   focused: makeBooleanProp(true),
   /**
    * 是否启用原生输入，以支持粘贴、系统键盘和短信验证码自动填充。
-   * 开启后仍用格子展示内容；粘贴和非数字字符会被过滤为数字，并截断到 length。
-   * 关闭时保持仅展示、由 Keyboard 录入的行为。
+   * 开启后仍用格子展示内容。粘贴追加到已有内容后，再过滤为数字并截断到 length。
+   * 自动填充不依赖 mask：iOS 使用 text-content-type="oneTimeCode"；H5 使用 autocomplete="one-time-code"，并同样设置 oneTimeCode（uni-app H5 会把它映射成 autocomplete）。
+   * 掩码只影响格子展示。关闭时保持仅展示、由 Keyboard 录入的行为。
    * 类型: boolean
    * 默认值: false
    */

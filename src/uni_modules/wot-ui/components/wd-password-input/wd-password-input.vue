@@ -19,7 +19,8 @@
         :type="nativeKeyboardType"
         inputmode="numeric"
         :maxlength="nativePasteMaxLength"
-        :text-content-type="mask ? 'off' : 'one-time-code'"
+        :autocomplete="nativeAutocomplete"
+        :text-content-type="nativeTextContentType"
         :value="nativeValue"
         @input="handleNativeInput"
         @paste="handleNativePaste"
@@ -47,20 +48,20 @@ export default {
 </script>
 
 <script lang="ts" setup>
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { addUnit } from '../../common/util'
 import { passwordInputProps } from './types'
+
+interface NativeFieldTarget {
+  value?: string | number
+}
 
 interface NativeInputEvent {
   detail?: {
     value?: string | number
   }
-  target?: {
-    value?: string | number
-  }
-  currentTarget?: {
-    value?: string | number
-  }
+  target?: NativeFieldTarget
+  currentTarget?: NativeFieldTarget
 }
 
 interface NativePasteEvent {
@@ -68,6 +69,8 @@ interface NativePasteEvent {
     getData?: (type: string) => string
   }
   preventDefault?: () => void
+  target?: NativeFieldTarget
+  currentTarget?: NativeFieldTarget
 }
 
 const props = defineProps(passwordInputProps)
@@ -76,12 +79,24 @@ const emit = defineEmits(['focus', 'update:modelValue'])
 
 const nativeFocused = ref(false)
 const nativeValue = ref(props.modelValue)
-let ignoreNativeInput = false
-let ignoreNativeInputTimer: ReturnType<typeof setTimeout> | undefined
+// 仅用于识别粘贴后的原文回写。与某次剪贴板原文一致、且不是在当前值上的逐字修改时才忽略。
+const pendingPasteRaws = new Set<string>()
 // 小程序用 digit 调出数字键盘；H5 的 digit 会被映射成 number，会丢掉前导 0，因此 H5 用 text + inputmode。
 let nativeKeyboardType = 'digit'
 // #ifdef H5
 nativeKeyboardType = 'text'
+// #endif
+// 短信验证码自动填充跟 native-input 走，不看 mask。掩码只影响格子展示。
+// iOS 认 text-content-type="oneTimeCode"。H5 认 autocomplete="one-time-code"；
+// uni-app H5 会把 text-content-type 转成原生 autocomplete，所以 H5 也要带上 oneTimeCode。
+let nativeAutocomplete: string | undefined
+let nativeTextContentType: string | undefined
+// #ifdef H5
+nativeAutocomplete = 'one-time-code'
+nativeTextContentType = 'oneTimeCode'
+// #endif
+// #ifdef APP-IOS
+nativeTextContentType = 'oneTimeCode'
 // #endif
 // 大于格子长度，避免短信原文在过滤数字前被原生 maxlength 截断。
 const nativePasteMaxLength = 500
@@ -126,29 +141,43 @@ function commitNativeValue(raw: string) {
   }
 }
 
+function writeNativeField(event: NativeInputEvent | NativePasteEvent, value: string) {
+  const target = event.target ?? event.currentTarget
+  if (target) target.value = value
+}
+
+/**
+ * 当前值上的单次按键或退格。这种输入即使和剪贴板原文相同，也要立即生效。
+ */
+function isDirectEdit(current: string, raw: string) {
+  const next = sanitizePassword(raw)
+  if (next.length === current.length + 1 && next.startsWith(current)) return true
+  if (next.length + 1 === current.length && current.startsWith(next)) return true
+  return false
+}
+
 function handleNativeInput(event: NativeInputEvent) {
-  if (ignoreNativeInput) return
-  commitNativeValue(readNativeValue(event))
+  const raw = readNativeValue(event)
+  const current = nativeValue.value
+  if (pendingPasteRaws.has(raw) && !isDirectEdit(current, raw)) {
+    writeNativeField(event, current)
+    return
+  }
+  pendingPasteRaws.delete(raw)
+  commitNativeValue(raw)
+  writeNativeField(event, nativeValue.value)
 }
 
 function handleNativePaste(event: NativePasteEvent) {
   const text = event.clipboardData?.getData?.('text')
-  if (text == null) return
-  const next = sanitizePassword(text)
+  if (text == null || text === '') return
+  // 读得到剪贴板时自己追加，避免原生粘贴把已有内容整段换成剪贴板原文。
   event.preventDefault?.()
-  if (!next) return
-  ignoreNativeInput = true
-  if (ignoreNativeInputTimer) clearTimeout(ignoreNativeInputTimer)
-  // uni-app H5 的 input 事件大约延迟 100ms，这段时间内忽略回写，避免未过滤文本覆盖粘贴结果。
-  ignoreNativeInputTimer = setTimeout(() => {
-    ignoreNativeInput = false
-  }, 200)
-  commitNativeValue(next)
+  pendingPasteRaws.add(String(text))
+  // 用已提交的值追加。父级 v-model 尚未回写时，props 仍是旧值，不能拿它当基准。
+  commitNativeValue(`${nativeValue.value}${text}`)
+  writeNativeField(event, nativeValue.value)
 }
-
-onBeforeUnmount(() => {
-  if (ignoreNativeInputTimer) clearTimeout(ignoreNativeInputTimer)
-})
 
 function handleNativeFocus(event: Event) {
   nativeFocused.value = true
