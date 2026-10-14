@@ -309,17 +309,29 @@ const virtualData = Array.from({ length: 10000 }, (_, index) => ({
 
 :::
 
-微信小程序中，uni-app 会复用作用域插槽实例。如果 `value` 插槽包含有内部状态的自定义组件，可通过带稳定业务 `key` 的单项 `v-for` 隔离每行组件，避免滚动后状态带到另一行。以下 `row-editor` 代表业务自定义组件，`row.id` 需要是数据中稳定且唯一的标识。
+微信小程序中，uni-app 会复用作用域插槽实例。如果 `value` 插槽包含有内部状态的组件，可通过带稳定业务 `key` 的单项 `v-for` 隔离每行组件，避免滚动后状态带到另一行。以下示例使用 `wd-input-number` 编辑数量，将编辑值保存在行数据的 `quantity` 中；`row.id` 需要是数据中稳定且唯一的标识。
 
-```html
-<wd-table-column prop="remark" label="备注" :width="200">
-  <template #value="{ row }">
-    <view v-for="item in [row]" :key="item.id">
-      <row-editor :row="item" />
-    </view>
-  </template>
-</wd-table-column>
+::: code-group
+
+```html [template]
+<wd-table :data="editableVirtualData" :height="320" virtual :row-height="64">
+  <wd-table-column prop="quantity" label="数量" width="100%" align="center">
+    <template #value="{ row }">
+      <view v-for="item in [row]" :key="item.id">
+        <wd-input-number v-model="item.quantity" :min="0" :max="99" />
+      </view>
+    </template>
+  </wd-table-column>
+</wd-table>
 ```
+
+```ts [script]
+import { ref } from 'vue'
+
+const editableVirtualData = ref(Array.from({ length: 200 }, (_, index) => ({ id: index + 1, quantity: index % 10 })))
+```
+
+:::
 
 虚拟滚动中的单元格可能被卸载或复用。需要保留的输入值、选中状态等业务数据应存放在行数据或外部状态中，不应只依赖子组件的内部状态。
 

@@ -194,17 +194,29 @@ const virtualData = Array.from({ length: 10000 }, (_, index) => ({
 }))
 ```
 
-In WeChat Mini Programs, uni-app reuses scoped slot instances. If the `value` slot contains a custom component with internal state, wrap it in a single-item `v-for` with a stable business `key` to prevent state from carrying over to another row after scrolling. In the example below, `row-editor` represents your own custom component, and `row.id` must be a stable, unique identifier in your data.
+In WeChat Mini Programs, uni-app reuses scoped slot instances. If the `value` slot contains a component with internal state, wrap it in a single-item `v-for` with a stable business `key` to prevent state from carrying over to another row after scrolling. The example below uses `wd-input-number` to edit quantities and stores each value in the row's `quantity` field. The `row.id` must be a stable, unique identifier in your data.
 
-```html
-<wd-table-column prop="remark" label="Remark" :width="200">
-  <template #value="{ row }">
-    <view v-for="item in [row]" :key="item.id">
-      <row-editor :row="item" />
-    </view>
-  </template>
-</wd-table-column>
+::: code-group
+
+```html [template]
+<wd-table :data="editableVirtualData" :height="320" virtual :row-height="64">
+  <wd-table-column prop="quantity" label="Quantity" width="100%" align="center">
+    <template #value="{ row }">
+      <view v-for="item in [row]" :key="item.id">
+        <wd-input-number v-model="item.quantity" :min="0" :max="99" />
+      </view>
+    </template>
+  </wd-table-column>
+</wd-table>
 ```
+
+```ts [script]
+import { ref } from 'vue'
+
+const editableVirtualData = ref(Array.from({ length: 200 }, (_, index) => ({ id: index + 1, quantity: index % 10 })))
+```
+
+:::
 
 Cells may be unmounted or reused during virtual scrolling. Store input values, selection state, and other data that must persist in the row data or external state, rather than relying solely on the child component's internal state.
 
