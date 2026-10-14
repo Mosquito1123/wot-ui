@@ -35,6 +35,7 @@
     {
       "root": "subPages",
       "pages": [
+        { "path": "richText/Index", "style": { "navigationBarTitleText": "RichText" } },
         {
           "path": "button/Index",
           "name": "button",
