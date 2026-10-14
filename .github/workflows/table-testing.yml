@@ -42,6 +42,8 @@ jobs:
         platform: [h5, mp-weixin]
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
