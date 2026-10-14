@@ -2,7 +2,7 @@
 
 A grid-based password input component, suitable for payment passwords, SMS verification codes, and other scenarios. Usually used in conjunction with the [Keyboard](./keyboard.md) component.
 
-By default, `wd-password-input` only displays the value, cursor, and prompt. Input is handled by `wd-keyboard`, which cannot paste. Enable `native-input` when paste, the system keyboard, or SMS autofill is needed: a transparent native input is placed over the cells, while the grid, mask, and length limit stay the same. This is off by default, and the original behavior is unchanged when it is off. Usually `focused` is bound to the keyboard visibility state, and the keyboard is opened in the `focus` event.
+By default, `wd-password-input` only displays the value, cursor, and prompt. Input is handled by `wd-keyboard`, which cannot paste. Enable `native-input` when paste, the system keyboard, or H5 SMS autofill is needed: a transparent native input is placed over the cells, while the grid, mask, and length limit stay the same. This is off by default, and the original behavior is unchanged when it is off. Usually `focused` is bound to the keyboard visibility state, and the keyboard is opened in the `focus` event.
 
 ## Component Type
 
@@ -99,7 +99,7 @@ Combined with `wd-keyboard`'s `random-key-order` capability, security in numeric
 
 ### Native Input
 
-`native-input` is off by default. When enabled, the value can be pasted or typed with the system keyboard, which fits SMS codes. A paste is appended to the current value, digits are kept (full-width digits are converted), and the result is truncated to `length`. SMS autofill does not depend on `mask`. iOS (App) sets `text-content-type="oneTimeCode"`. H5 sets `autocomplete="one-time-code"`. uni-app's H5 input maps `text-content-type` to that autocomplete, so H5 also sets `oneTimeCode`. The mask only changes how cells are drawn; the native input stays a text field. In this mode the cursor follows the native input focus. Avoid binding `wd-keyboard` at the same time, so two inputs do not write the value together.
+`native-input` is off by default. When enabled, the value can be pasted or typed with the system keyboard, which fits SMS codes. A paste is appended to the current value, digits are kept (full-width digits are converted), and the result is truncated to `length`. SMS autofill does not depend on `mask`, and is set only on H5: `autocomplete="one-time-code"`, plus `text-content-type="oneTimeCode"`. uni-app's H5 input maps `text-content-type` to that autocomplete. `text-content-type` is supported only on App-nvue-iOS. This component is a Vue page, so App-vue does not get SMS code suggestions from that attribute. The mask only changes how cells are drawn; the native input stays a text field. In this mode the cursor follows the native input focus. Avoid binding `wd-keyboard` at the same time, so two inputs do not write the value together.
 
 ```html
 <wd-password-input v-model="value" native-input :mask="false" :length="6" />
@@ -122,7 +122,7 @@ const value = ref('')
 | gutter | Spacing between input box grids, default unit is `px` | `number \| string` | `0` |
 | length | Password length | `number` | `6` |
 | focused | Whether in focused state; cursor is displayed when focused, usually linked with keyboard visibility state. When `native-input` is enabled, the cursor follows native input focus instead | `boolean` | `true` |
-| native-input ^($LOWEST_VERSION$) | Whether to enable the native input. When enabled, paste, the system keyboard, and SMS autofill are supported. A paste is appended, non-digits are removed, and the value is truncated to `length`. Autofill does not depend on `mask`. Off by default | `boolean` | `false` |
+| native-input ^($LOWEST_VERSION$) | Whether to enable the native input. When enabled, paste and the system keyboard are supported. H5 also enables SMS autofill, which does not depend on `mask`. A paste is appended, non-digits are removed, and the value is truncated to `length`. Off by default | `boolean` | `false` |
 | custom-class | Custom class name for root node | `string` | `''` |
 | custom-style | Custom style for root node | `string` | `''` |
 

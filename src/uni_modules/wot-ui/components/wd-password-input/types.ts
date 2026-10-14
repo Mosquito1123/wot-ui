@@ -40,9 +40,10 @@ export const passwordInputProps = {
    */
   focused: makeBooleanProp(true),
   /**
-   * 是否启用原生输入，以支持粘贴、系统键盘和短信验证码自动填充。
+   * 是否启用原生输入，以支持粘贴和系统键盘。H5 上同时支持短信验证码自动填充。
    * 开启后仍用格子展示内容。粘贴追加到已有内容后，再过滤为数字并截断到 length。
-   * 自动填充不依赖 mask：iOS 使用 text-content-type="oneTimeCode"；H5 使用 autocomplete="one-time-code"，并同样设置 oneTimeCode（uni-app H5 会把它映射成 autocomplete）。
+   * 自动填充不依赖 mask，且只在 H5 设置：autocomplete="one-time-code"，并设置 text-content-type="oneTimeCode"（uni-app H5 会把它映射成 autocomplete）。
+   * text-content-type 仅 App-nvue-iOS 有效。本组件是 Vue 文件，不在 App-vue 上承诺短信验证码建议。
    * 掩码只影响格子展示。关闭时保持仅展示、由 Keyboard 录入的行为。
    * 类型: boolean
    * 默认值: false

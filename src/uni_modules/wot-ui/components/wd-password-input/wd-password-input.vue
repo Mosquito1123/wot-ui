@@ -87,15 +87,12 @@ let nativeKeyboardType = 'digit'
 nativeKeyboardType = 'text'
 // #endif
 // 短信验证码自动填充跟 native-input 走，不看 mask。掩码只影响格子展示。
-// iOS 认 text-content-type="oneTimeCode"。H5 认 autocomplete="one-time-code"；
-// uni-app H5 会把 text-content-type 转成原生 autocomplete，所以 H5 也要带上 oneTimeCode。
+// H5 认 autocomplete="one-time-code"。uni-app H5 还会把 text-content-type 转成原生 autocomplete，所以同时带上 oneTimeCode。
+// text-content-type 仅 App-nvue-iOS 支持。Vue 文件里的 APP-IOS 条件编译不可靠，因此不在 App-vue 上设置。
 let nativeAutocomplete: string | undefined
 let nativeTextContentType: string | undefined
 // #ifdef H5
 nativeAutocomplete = 'one-time-code'
-nativeTextContentType = 'oneTimeCode'
-// #endif
-// #ifdef APP-IOS
 nativeTextContentType = 'oneTimeCode'
 // #endif
 // 大于格子长度，避免短信原文在过滤数字前被原生 maxlength 截断。
@@ -161,11 +158,13 @@ function handleNativeInput(event: NativeInputEvent) {
   const current = nativeValue.value
   if (pendingPasteRaws.has(raw) && !isDirectEdit(current, raw)) {
     writeNativeField(event, current)
-    return
+    // 微信小程序会用 @input 的返回值替换输入框内容。
+    return current
   }
   pendingPasteRaws.delete(raw)
   commitNativeValue(raw)
   writeNativeField(event, nativeValue.value)
+  return nativeValue.value
 }
 
 function handleNativePaste(event: NativePasteEvent) {

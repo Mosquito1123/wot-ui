@@ -105,10 +105,29 @@ describe('WdPasswordInput', () => {
       }
     })
 
-    await (wrapper.vm as any).handleNativeInput({ detail: { value: '12ab90' } })
+    const next = await (wrapper.vm as any).handleNativeInput({ detail: { value: '12ab90' } })
 
     const emitted = wrapper.emitted() as Record<string, any[]>
+    expect(next).toBe('1290')
     expect(emitted['update:modelValue'][0][0]).toBe('1290')
+  })
+
+  test('原生输入返回清洗后的值以替换小数点', async () => {
+    const wrapper = mount(WdPasswordInput, {
+      props: {
+        nativeInput: true,
+        length: 6,
+        modelValue: '12'
+      }
+    })
+
+    const unchanged = await (wrapper.vm as any).handleNativeInput({ detail: { value: '12.' } })
+    expect(unchanged).toBe('12')
+    expect(wrapper.emitted('update:modelValue')).toBeFalsy()
+
+    const next = await (wrapper.vm as any).handleNativeInput({ detail: { value: '12.3' } })
+    expect(next).toBe('123')
+    expect((wrapper.emitted('update:modelValue') as string[][])[0][0]).toBe('123')
   })
 
   test('原生输入无数字的粘贴不改值', async () => {
@@ -288,11 +307,13 @@ describe('WdPasswordInput', () => {
     expect(field.value).toBe('1234')
 
     field.value = '3a4'
-    await (wrapper.vm as any).handleNativeInput({ target: field, detail: { value: '3a4' } })
+    const echoed = await (wrapper.vm as any).handleNativeInput({ target: field, detail: { value: '3a4' } })
+    expect(echoed).toBe('1234')
     expect(field.value).toBe('1234')
 
     field.value = '12345'
-    await (wrapper.vm as any).handleNativeInput({ target: field, detail: { value: '12345' } })
+    const typed = await (wrapper.vm as any).handleNativeInput({ target: field, detail: { value: '12345' } })
+    expect(typed).toBe('12345')
     expect(field.value).toBe('12345')
 
     const emitted = wrapper.emitted('update:modelValue') as string[][]
