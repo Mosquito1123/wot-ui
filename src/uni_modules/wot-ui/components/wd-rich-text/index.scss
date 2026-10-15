@@ -74,7 +74,10 @@ $rich-text-image-state-bg: var(--wot-rich-text-image-state-bg, $filled-content) 
   }
   &__image-placeholder {
     position: absolute;
-    inset: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     object-fit: contain;
@@ -82,7 +85,10 @@ $rich-text-image-state-bg: var(--wot-rich-text-image-state-bg, $filled-content) 
   }
   &__image-state {
     position: absolute;
-    inset: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
     background: $rich-text-image-state-bg;
     color: $rich-text-image-state-color;
     font-size: $rich-text-font-size;

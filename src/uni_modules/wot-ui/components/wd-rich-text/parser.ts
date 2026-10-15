@@ -37,6 +37,7 @@ const editorStyles = new Map([
   ['ql-font-monospace', 'font-family:monospace']
 ])
 
+/** 解码并过滤属性，合并编辑器预设、用户映射与内联样式。 */
 function parseAttributes(source: string, name: string, options: RichTextParseOptions): Record<string, string> {
   const attrs: Record<string, string> = {}
   let classes: string[] = []
@@ -196,9 +197,13 @@ export function parseHtml(content: string, options: RichTextParseOptions = {}): 
     }
     if (name === 'source' && !['video', 'audio'].includes(stack[stack.length - 1].name)) continue
     if (name === 'col' && !['table', 'colgroup'].includes(stack[stack.length - 1].name)) continue
+    if (name === 'colgroup') closeWithin(['colgroup'], ['table'])
     if (name === 'colgroup' && stack[stack.length - 1].name !== 'table') continue
     if (blocks.has(name)) closeWithin(['p'], ['div', 'li', 'td', 'th'])
     if (name === 'li') closeWithin(['li'], ['ul', 'ol'])
+    // 表格分组允许省略结束标签，不能将后续行留在列组或前一个行组内。
+    if (['thead', 'tbody', 'tfoot'].includes(name)) closeWithin(['colgroup', 'thead', 'tbody', 'tfoot'], ['table'])
+    if (['tr', 'td', 'th', 'caption'].includes(name)) closeWithin(['colgroup'], ['table', 'tr'])
     if (name === 'tr') closeWithin(['tr'], ['table'])
     if (name === 'td' || name === 'th') closeWithin(['td', 'th'], ['tr', 'table'])
     if (name === 'a') closeWithin(['a'], [])

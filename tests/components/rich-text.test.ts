@@ -1,19 +1,34 @@
-import { describe, expect, test, vi, beforeEach } from 'vitest'
+import { describe, expect, expectTypeOf, test, vi, beforeEach } from 'vitest'
 import { defineComponent, h, nextTick, reactive, ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import WdRichText from '../../src/uni_modules/wot-ui/components/wd-rich-text/wd-rich-text.vue'
 import { compileRichText } from '../../src/uni_modules/wot-ui/components/wd-rich-text/transform'
 import { parseHtml, decodeEntities, sanitizeStyle, sanitizeUrl } from '../../src/uni_modules/wot-ui/components/wd-rich-text/parser'
-import type { RichTextRenderNode } from '../../src/uni_modules/wot-ui/components/wd-rich-text/types'
+import type { RichTextExpose, RichTextInstance, RichTextProps, RichTextRenderNode } from '../../src/uni_modules/wot-ui/components/wd-rich-text/types'
 import { staticContent, inlineContent, imageContent, tableContent, staticTableContent, longContent, listContent } from '../fixtures/rich-text'
 import editorFixtures from '../fixtures/rich-text-editors.json'
 import { columnTableContent, staticColumnTableContent } from '../fixtures/rich-text-tables'
 import { getPlainText } from '../../src/uni_modules/wot-ui/components/wd-rich-text/parser'
 import { layoutTable } from '../../src/uni_modules/wot-ui/components/wd-rich-text/table'
 
+interface MockSelectorQuery {
+  in: () => MockSelectorQuery
+  select: (selector: string) => MockSelectorQuery
+  selectViewport?: () => MockSelectorQuery
+  boundingClientRect: (callback: (rect: unknown) => void) => MockSelectorQuery
+  scrollOffset?: (callback: (offset: unknown) => void) => MockSelectorQuery
+  exec: () => void
+}
+
 function flatten(nodes: RichTextRenderNode[]): RichTextRenderNode[] {
   return nodes.flatMap((node) => [node, ...flatten(node.children)])
 }
+
+test('RichTextInstance 区分组件属性与公开方法', () => {
+  expectTypeOf<RichTextInstance['$props']>().toMatchTypeOf<RichTextProps>()
+  expectTypeOf<RichTextInstance['playMedia']>().toEqualTypeOf<RichTextExpose['playMedia']>()
+  expectTypeOf<RichTextInstance['getHeadings']>().toEqualTypeOf<RichTextExpose['getHeadings']>()
+})
 
 describe('编辑器正式导出内容兼容', () => {
   test.each(Object.entries(editorFixtures))('%s 导出的段落、链接和空行可解析，编辑器元数据不进入渲染树', (_, fixture) => {
@@ -21,7 +36,7 @@ describe('编辑器正式导出内容兼容', () => {
     const result = compileRichText(input)
     expect(getPlainText(input)).toContain('山野来信')
     expect(getPlainText(input)).toContain('慢下来，听见风。')
-    expect(flatten(result.nodes).some((node) => node.kind === 'link' && node.href.endsWith('journal/gear'))).toBe(true)
+    expect(flatten(result.nodes).some((node) => node.kind === 'link' && node.href?.endsWith('journal/gear'))).toBe(true)
     expect(JSON.stringify(result)).not.toMatch(/data-language|data-list|data-href|contenteditable|target|noopener/)
   })
   test('Quill 字号字体、缩进、空段落、嵌套列表和任务状态均保留', () => {
@@ -71,6 +86,34 @@ describe('表格列宽与长文本', () => {
     if (node.type !== 'element') throw new Error('Expected a table')
     return node
   }
+  test('省略列组、行组、行和单元格的结束标签时，保留全部行及列宽', () => {
+    for (const content of ['A', '<a href="/a">A</a>']) {
+      const node = table(
+        `<table><colgroup><col width="30%"><col width="70%"><thead><tr><th>标题<th>说明<tbody><tr><td>${content}<td>B<tfoot><tr><td>C<td>D</table>`
+      )
+      expect(node.children?.map((child) => child.type === 'element' && child.name)).toEqual(['colgroup', 'thead', 'tbody', 'tfoot'])
+      const layout = layoutTable(node)
+      expect(layout.widths).toEqual(['30%', '70%'])
+      expect(layout.cells.map((cell) => getPlainText([cell.node]))).toEqual(['标题', '说明', 'A', 'B', 'C', 'D'])
+      expect(layout.cells.map((cell) => cell.row)).toEqual([1, 1, 2, 2, 3, 3])
+      expect(JSON.stringify(compileRichText([node]))).toContain('说明')
+      expect(JSON.stringify(compileRichText([node]))).toContain('D')
+    }
+  })
+  test.each(['tr', 'td', 'th', 'caption'])('%s 开始时闭合未结束的 colgroup', (tag) => {
+    const node = table(`<table><colgroup><col><${tag}>A</${tag}></table>`)
+    expect(node.children?.map((child) => child.type === 'element' && child.name)).toEqual(['colgroup', tag])
+  })
+  test('连续 colgroup 省略闭合标签时仍保留各组列宽', () => {
+    const node = table('<table><colgroup><col width="30%"><colgroup><col width="70%"><tr><td>A<td>B</table>')
+    expect(layoutTable(node).widths).toEqual(['30%', '70%'])
+    expect(layoutTable(node).cells).toHaveLength(2)
+  })
+  test('嵌套表格的行组自动闭合不能越过当前 table', () => {
+    const node = table('<table><tbody><tr><td><table><colgroup><col><tbody><tr><td>内层</table></td></tr><tr><td>外层</table>')
+    expect(layoutTable(node).cells.map((cell) => getPlainText([cell.node]))).toEqual(['内层', '外层'])
+    expect(node.children).toHaveLength(1)
+  })
   test('原生路径保留列节点，交互路径保留同一列比例与合并关系，不修改输入', () => {
     const input = parseHtml(columnTableContent)
     const before = JSON.stringify(input)
@@ -243,12 +286,25 @@ describe('HTML 解析与内容清洗', () => {
     'javascript:alert(1)',
     'JaVaScRiPt:alert(1)',
     'java\nscript:alert(1)',
+    '/images/a\u0000b.png',
+    '/images/a\u007fb.png',
+    '/images/a\u0085b.png',
     'data:text/html,test',
     'vbscript:test',
     'file:///tmp/test',
     '\\evil.test'
   ])('拒绝协议或控制字符：%s', (url) => {
     expect(sanitizeUrl(url)).toBe('')
+  })
+  test('普通 URL 空格编码为 %20，实体空格和资源基址保持一致', () => {
+    expect(sanitizeUrl(' /uploads/my photo.jpg ', true)).toBe('/uploads/my%20photo.jpg')
+    expect(sanitizeUrl('https://example.test/my%20photo.jpg', true)).toBe('https://example.test/my%20photo.jpg')
+    expect(sanitizeUrl('/search?q=hello world')).toBe('/search?q=hello%20world')
+    expect(parseHtml('<img src="my&#32;photo.jpg"><a href="/my page">链接</a>', { baseUrl: 'https://example.test/photo album/' })).toMatchObject([
+      { attrs: { src: 'https://example.test/photo%20album/my%20photo.jpg' } },
+      { attrs: { href: '/my%20page' } }
+    ])
+    expect(sanitizeUrl('java script:alert(1)')).toBe('java%20script:alert(1)')
   })
   test('解码之后检查地址协议，样式函数和全局定位被过滤', () => {
     expect(
@@ -746,7 +802,7 @@ describe('RichText review 回归', () => {
     expect(nodes.map((node) => node.imageStyle)).toEqual(['height:auto;', 'height:100%;', 'height:auto;', 'height:auto;'])
   })
   test.each(['javascript:x', '', undefined])('无效链接 %s 内的图片回退普通图片点击与预览', async (href) => {
-    const preview = vi.spyOn(uni, 'previewImage').mockImplementation(() => {})
+    const preview = vi.spyOn(uni as { previewImage: (options: UniApp.PreviewImageOptions) => void }, 'previewImage').mockImplementation(() => {})
     const wrapper = mount(WdRichText, {
       global,
       props: { content: `<a ${href === undefined ? '' : `href="${href}"`}><span><img src="https://a.test/photo.png"></span></a>` }
@@ -903,7 +959,7 @@ describe('目录与锚点', () => {
     second.unmount()
   })
   test('位置查询与页面滚动量相加，偏移用于预留顶部空间', async () => {
-    const query = {
+    const query: MockSelectorQuery = {
       in: vi.fn(() => query),
       select: vi.fn(() => query),
       selectViewport: vi.fn(() => query),
@@ -917,10 +973,12 @@ describe('目录与锚点', () => {
       }),
       exec: vi.fn()
     }
-    const querySpy = vi.spyOn(uni, 'createSelectorQuery').mockReturnValue(query as any)
-    const scrollSpy = vi.spyOn(uni, 'pageScrollTo').mockImplementation((options) => {
-      options.success?.({ errMsg: 'ok' })
-    })
+    const querySpy = vi.spyOn(uni, 'createSelectorQuery').mockReturnValue(query as unknown as UniApp.SelectorQuery)
+    const scrollSpy = vi
+      .spyOn(uni as { pageScrollTo: (options: UniApp.PageScrollToOptions) => void }, 'pageScrollTo')
+      .mockImplementation((options) => {
+        options.success?.({ errMsg: 'ok' })
+      })
     const wrapper = mount(WdRichText, { global, props: { enableAnchor: true, content: '<h2 id="a">标题</h2>' } })
     try {
       await expect(wrapper.vm.getAnchorRect('a')).resolves.toEqual({ top: 120, left: 10, width: 300, height: 30 })
@@ -936,7 +994,7 @@ describe('目录与锚点', () => {
   })
   test('隐藏节点与异步测量期间被替换的内容不产生错误滚动', async () => {
     let measure: (rect: unknown) => void = () => {}
-    const query = {
+    const query: MockSelectorQuery = {
       in: vi.fn(() => query),
       select: vi.fn(() => query),
       boundingClientRect: vi.fn((cb) => {
@@ -945,7 +1003,7 @@ describe('目录与锚点', () => {
       }),
       exec: vi.fn()
     }
-    const spy = vi.spyOn(uni, 'createSelectorQuery').mockReturnValue(query as any)
+    const spy = vi.spyOn(uni, 'createSelectorQuery').mockReturnValue(query as unknown as UniApp.SelectorQuery)
     const wrapper = mount(WdRichText, { global, props: { enableAnchor: true, content: '<h2 id="a">标题</h2>' } })
     try {
       const hidden = wrapper.vm.getAnchorRect('a')
@@ -1092,7 +1150,7 @@ describe('RichText 媒体锚点与布局校正', () => {
   function mockPage() {
     let scrollTop = 0
     let targetTop = 200
-    const query = {
+    const query: MockSelectorQuery = {
       in: vi.fn(() => query),
       select: vi.fn(() => query),
       selectViewport: vi.fn(() => query),
@@ -1106,11 +1164,13 @@ describe('RichText 媒体锚点与布局校正', () => {
       }),
       exec: vi.fn()
     }
-    const querySpy = vi.spyOn(uni, 'createSelectorQuery').mockReturnValue(query as any)
-    const scrollSpy = vi.spyOn(uni, 'pageScrollTo').mockImplementation((options) => {
-      scrollTop = options.scrollTop!
-      options.success?.({ errMsg: 'ok' })
-    })
+    const querySpy = vi.spyOn(uni, 'createSelectorQuery').mockReturnValue(query as unknown as UniApp.SelectorQuery)
+    const scrollSpy = vi
+      .spyOn(uni as { pageScrollTo: (options: UniApp.PageScrollToOptions) => void }, 'pageScrollTo')
+      .mockImplementation((options) => {
+        scrollTop = options.scrollTop!
+        options.success?.({ errMsg: 'ok' })
+      })
     return {
       querySpy,
       scrollSpy,

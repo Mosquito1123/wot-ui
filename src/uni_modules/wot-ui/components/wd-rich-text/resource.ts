@@ -36,9 +36,9 @@ function isDataImage(value: string): boolean {
 
 /** 链接和资源分开校验；不依赖浏览器 URL 或 Node API。 */
 export function sanitizeUrl(value: string, image = false, allowDataImage = false): string {
-  const url = value.trim()
+  const url = value.trim().replace(/ /g, '%20')
   if (image && allowDataImage && /^data:/i.test(url)) return isDataImage(url) ? url : ''
-  const hasControl = Array.from(url).some((char) => char.charCodeAt(0) <= 32 || (char.charCodeAt(0) >= 127 && char.charCodeAt(0) <= 159))
+  const hasControl = Array.from(url).some((char) => char.charCodeAt(0) < 32 || (char.charCodeAt(0) >= 127 && char.charCodeAt(0) <= 159))
   if (!url || hasControl || /[\\<>]/.test(url)) return ''
   const scheme = /^([a-z][a-z\d+.-]*):/i.exec(url)?.[1].toLowerCase()
   if (scheme && !['http', 'https', ...(image ? [] : ['mailto', 'tel'])].includes(scheme)) return ''

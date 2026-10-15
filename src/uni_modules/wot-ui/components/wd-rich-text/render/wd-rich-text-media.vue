@@ -97,6 +97,7 @@ function play(): boolean {
   else video!.play()
   return true
 }
+/** 取消续播意图并发送暂停指令，避免用户暂停后换源又恢复播放。 */
 function pause(): boolean {
   playbackRequested = false
   if (disposed || failed.value || (!audio && !video)) return false
@@ -104,16 +105,19 @@ function pause(): boolean {
   video?.pause()
   return true
 }
+/** 向仍有效的播放器发送定位指令，不主动改变播放状态。 */
 function seek(seconds: number): boolean {
   if (disposed || failed.value || (!audio && !video)) return false
   if (audio) audio.seek(seconds)
   else video!.seek(seconds)
   return true
 }
+/** 根据已收到的平台播放状态切换音频播放或暂停。 */
 function toggleAudio() {
   if (playing.value) pause()
   else play()
 }
+/** 过滤卸载后的回调，将未知或无效进度归零后统一上报。 */
 function handleTimeUpdate(event: { detail?: { currentTime?: number; duration?: number } }) {
   if (disposed || failed.value) return
   const finiteTime = (value?: number) => (typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0)
@@ -125,6 +129,7 @@ function handleTimeUpdate(event: { detail?: { currentTime?: number; duration?: n
     duration: finiteTime(event.detail?.duration)
   })
 }
+/** 向父组件报告有效实例的播放状态，由父组件协调媒体互斥并转发事件。 */
 function notify(event: 'play' | 'pause' | 'ended') {
   if (!disposed) context?.mediaEvent(mediaId, event, { id: props.node.mediaId || '', type: props.node.mediaType || 'video', src: source.value })
 }
@@ -146,6 +151,7 @@ function handleEnded() {
   playing.value = false
   notify('ended')
 }
+/** 进入最终失败状态并只上报一次错误，后续延迟回调不再改变状态。 */
 function fail(message: string) {
   if (disposed || failed.value) return
   failed.value = true

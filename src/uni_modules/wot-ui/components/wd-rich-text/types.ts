@@ -239,4 +239,4 @@ export const richTextProps = {
   classStyles: { type: Object as PropType<Record<string, string>>, default: () => ({}) }
 }
 export type RichTextProps = ExtractPropTypes<typeof richTextProps>
-export type RichTextInstance = ComponentPublicInstance<RichTextExpose, RichTextProps>
+export type RichTextInstance = ComponentPublicInstance<RichTextProps, RichTextExpose>

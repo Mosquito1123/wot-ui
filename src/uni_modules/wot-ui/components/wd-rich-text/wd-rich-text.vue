@@ -131,6 +131,7 @@ function findMedia(id: string) {
   const matches = [...media.values()].filter((controller) => controller.id === id)
   return matches.length === 1 ? matches[0] : undefined
 }
+/** 向唯一匹配的媒体发送播放指令；返回值不代表资源已就绪或实际开始播放。 */
 function playMedia(id: string): boolean {
   return findMedia(id)?.play() ?? false
 }
@@ -143,6 +144,7 @@ function pauseMedia(id?: string): boolean {
   })
   return accepted
 }
+/** 将非负有限秒数传给指定媒体，由平台处理超出时长或资源未就绪的情况。 */
 function seekMedia(id: string, seconds: number): boolean {
   if (!Number.isFinite(seconds) || seconds < 0) return false
   return findMedia(id)?.seek(seconds) ?? false
