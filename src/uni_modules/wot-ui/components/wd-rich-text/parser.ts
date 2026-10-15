@@ -8,7 +8,7 @@ export { decodeEntities } from './entities'
 import type { RichTextInputNode, RichTextTag, RichTextParseOptions } from './types'
 
 const tags = new Set(
-  'div p h1 h2 h3 h4 h5 h6 span strong em u s sub sup a img ul ol li table thead tbody tfoot tr td th br hr blockquote pre code mark small ins dl dt dd figure figcaption caption video audio source'.split(
+  'div p h1 h2 h3 h4 h5 h6 span strong em u s sub sup a img ul ol li table colgroup col thead tbody tfoot tr td th br hr blockquote pre code mark small ins dl dt dd figure figcaption caption video audio source'.split(
     ' '
   )
 )
@@ -29,6 +29,13 @@ const aliases: Record<string, string> = {
 const discarded = new Set('script style iframe object embed svg math head template canvas textarea title xmp plaintext'.split(' '))
 const voidTags = new Set('area base br col embed hr img input link meta param source track wbr'.split(' '))
 const blocks = new Set('div p h1 h2 h3 h4 h5 h6 ul ol table blockquote pre hr dl dt dd figure figcaption caption video audio'.split(' '))
+const editorStyles = new Map([
+  ['ql-size-small', 'font-size:0.75em'],
+  ['ql-size-large', 'font-size:1.5em'],
+  ['ql-size-huge', 'font-size:2.5em'],
+  ['ql-font-serif', 'font-family:Georgia, serif'],
+  ['ql-font-monospace', 'font-family:monospace']
+])
 
 function parseAttributes(source: string, name: string, options: RichTextParseOptions): Record<string, string> {
   const attrs: Record<string, string> = {}
@@ -41,8 +48,8 @@ function parseAttributes(source: string, name: string, options: RichTextParseOpt
     if (key === 'style') attrs.style = sanitizeStyle(value)
     else if (
       key === 'id' &&
-      !['source', 'thead', 'tbody', 'tfoot', 'tr'].includes(name) &&
-      options.enableAnchor &&
+      !['source', 'col', 'colgroup', 'thead', 'tbody', 'tfoot', 'tr'].includes(name) &&
+      (options.enableAnchor || name === 'video' || name === 'audio') &&
       value &&
       value.length <= 128 &&
       !/\s/.test(value) &&
@@ -58,11 +65,13 @@ function parseAttributes(source: string, name: string, options: RichTextParseOpt
     else if (key === 'title' && ['video', 'audio'].includes(name)) attrs.title = value
     else if (['loop', 'muted'].includes(key) && ['video', 'audio'].includes(name)) attrs[key] = 'true'
     else if (key === 'class') classes = value.split(/\s+/)
+    else if (key === 'data-list' && name === 'li' && ['checked', 'unchecked'].includes(value)) attrs[key] = value
     else if (key === 'start' && name === 'ol' && /^-?\d{1,6}$/.test(value)) attrs.start = value
     else if (key === 'type' && name === 'ol' && ['1', 'a', 'A', 'i', 'I'].includes(value)) attrs.type = value
     else if (key === 'alt' && name === 'img') attrs.alt = value
     else if (['width', 'height'].includes(key) && /^(?:\d+(?:\.\d+)?)(?:px|%)?$/.test(value)) attrs[key] = value
     else if (['colspan', 'rowspan'].includes(key) && ['td', 'th'].includes(name) && /^[1-9]\d?$/.test(value)) attrs[key] = value
+    else if (key === 'span' && ['col', 'colgroup'].includes(name) && /^[1-9]\d?$/.test(value)) attrs.span = value
   }
   const configured = [
     options.tagStyle?.[name],
@@ -71,7 +80,8 @@ function parseAttributes(source: string, name: string, options: RichTextParseOpt
       const indent = /^ql-indent-([1-8])$/.exec(token)?.[1]
       return [
         alignment ? `text-align:${alignment}` : '',
-        indent ? `padding-left:${Number(indent) * 2}em` : '',
+        indent ? `padding-left:${Number(indent) * 3}em` : '',
+        editorStyles.get(token),
         Object.prototype.hasOwnProperty.call(options.classStyles || {}, token) ? options.classStyles?.[token] : ''
       ]
         .filter(Boolean)
@@ -185,6 +195,8 @@ export function parseHtml(content: string, options: RichTextParseOptions = {}): 
       continue
     }
     if (name === 'source' && !['video', 'audio'].includes(stack[stack.length - 1].name)) continue
+    if (name === 'col' && !['table', 'colgroup'].includes(stack[stack.length - 1].name)) continue
+    if (name === 'colgroup' && stack[stack.length - 1].name !== 'table') continue
     if (blocks.has(name)) closeWithin(['p'], ['div', 'li', 'td', 'th'])
     if (name === 'li') closeWithin(['li'], ['ul', 'ol'])
     if (name === 'tr') closeWithin(['tr'], ['table'])

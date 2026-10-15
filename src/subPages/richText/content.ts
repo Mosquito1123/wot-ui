@@ -54,10 +54,32 @@ export const listContent =
 export const tableContent =
   '<table style="width:560px"><tr><th>时间</th><th>地点</th><th>安排</th><th>随身物品</th></tr><tr><td>09:00</td><td>湖畔步道</td><td>慢走与拍照</td><td>水、轻便外套</td></tr><tr><td>12:00</td><td>林间草地</td><td>野餐与阅读</td><td>野餐垫、一本书</td></tr><tr><td>16:00</td><td>步道入口</td><td>集合返程</td><td>随身垃圾袋</td></tr></table>'
 export const mergedTableContent =
-  '<table><tr><th>行程</th><th colspan="2">周末慢游计划</th></tr><tr><td rowspan="2">上午</td><td>09:00</td><td>湖畔集合</td></tr><tr><td>10:00</td><td><a href="/journal/gear">林间轻徒步</a></td></tr><tr><td>下午</td><td>14:00</td><td>草地阅读会</td></tr></table>'
+  '<table><colgroup><col width="20%"><col width="25%"><col width="55%"></colgroup><tr><th>行程</th><th colspan="2">周末慢游计划</th></tr><tr><td rowspan="2">上午</td><td>09:00</td><td>湖畔集合</td></tr><tr><td>10:00</td><td><a href="/journal/gear">林间轻徒步</a></td></tr><tr><td>下午</td><td>14:00</td><td>草地阅读会</td></tr></table>'
+
+/** 按编辑器正式导出的 HTML 格式编写；真实 API 导出样本另存于 tests/fixtures。 */
+export const editorSamples = [
+  {
+    name: 'Quill',
+    note: '字号、衬线字体、段落缩进与任务清单。',
+    content:
+      '<p class="ql-align-center"><span class="ql-size-large ql-font-serif">给周末，一点留白</span></p><p class="ql-indent-1">沿着湖岸走，把时间交给风。</p><ul><li data-list="checked">收好行囊，带上好心情</li><li data-list="unchecked"><a href="/journal/gear">看看还有什么要准备</a></li></ul>'
+  },
+  {
+    name: 'wangEditor',
+    note: '段落对齐、首行缩进、强调与嵌套列表。',
+    content:
+      '<h3 style="text-align:center">一份轻装出行提案</h3><p style="text-indent:2em">不用走得很远，<strong>附近的山野，也值得认真遇见。</strong></p><ol><li>选一条喜欢的路<ul><li>林间步道 · 湖畔栈道</li></ul></li><li><a href="/journal/gear">带上简单的行前清单</a></li></ol>'
+  },
+  {
+    name: 'TinyMCE',
+    note: '图片说明、列宽与表格里的长单词换行。',
+    content: `<figure><img src="${journalCover}" alt="湖畔一角" width="100%" height="100"><figcaption>01 / 把风景装进口袋</figcaption></figure><table style="table-layout:fixed"><colgroup><col width="25%"><col width="75%"></colgroup><tr><td>手记</td><td><a href="/journal/story">WeekendJournal_AWalkByTheLake_2026_WeekendEscape</a></td></tr></table>`
+  }
+]
 export const videoContent =
-  '<video title="旅途片段" controls poster="https://images.unsplash.com/photo-1536686984648-9bcaa70abf45?auto=format&fit=crop&w=1200&h=750&q=85" src="https://unpkg.com/wot-design-uni-assets@1.0.3/VID_115503.mp4"></video>'
-export const audioContent = '<audio title="阅读时，听一段轻音乐" src="https://web-ext-storage.dcloud.net.cn/uni-app/ForElise.mp3"></audio>'
+  '<video id="trip-video" title="旅途片段" controls poster="https://images.unsplash.com/photo-1536686984648-9bcaa70abf45?auto=format&fit=crop&w=1200&h=750&q=85" src="https://unpkg.com/wot-design-uni-assets@1.0.3/VID_115503.mp4"></video>'
+export const audioContent =
+  '<audio id="reading-audio" title="阅读时，听一段轻音乐" src="https://web-ext-storage.dcloud.net.cn/uni-app/ForElise.mp3"></audio>'
 
 /** 只在用户展开长文时创建内容；不会进入页面的默认渲染树。 */
 export function createLongArticle() {

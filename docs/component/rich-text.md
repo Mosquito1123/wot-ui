@@ -123,7 +123,7 @@ const classStyles = { eyebrow: 'font-size:12px;letter-spacing:3px;color:var(--wo
 </script>
 ```
 
-样式优先级为：默认样式 → `tag-style` → `class-styles` → HTML 内联样式。class 通过映射生效，不会直接使用页面同名 CSS。支持常见的 `ql-align-*` 和 `ql-indent-1`–`8` 排版类。
+样式优先级为：默认样式 → `tag-style` → `class-styles` → HTML 内联样式。class 通过映射生效，不会直接使用页面同名 CSS。
 
 ### 主题与文字样式
 
@@ -144,11 +144,18 @@ const classStyles = { eyebrow: 'font-size:12px;letter-spacing:3px;color:var(--wo
 
 ```vue
 <wd-rich-text
-  content='<table style="width:560px"><tr><th>时间</th><th colspan="2">周末安排</th></tr><tr><td>09:00</td><td>湖畔集合</td><td>沿湖慢走</td></tr></table>'
+  content='<table style="width:560px;table-layout:fixed"><colgroup><col width="20%"><col width="30%"><col width="50%"></colgroup><tr><th>时间</th><th colspan="2">周末安排</th></tr><tr><td>09:00</td><td>湖畔集合</td><td>沿湖慢走</td></tr></table>'
 />
 ```
 
-含链接或图片的合并表格使用等宽列，不支持 `col` / `colgroup` 列宽设置；请在目标平台确认合并和滚动效果。
+用 `colgroup` / `col` 的 `width` 属性或内联 `width` 设置列宽，支持像素和百分比。表格里的长单词默认允许换行；需要保持单行时可设置 `white-space:nowrap`，配合表格宽度横向查看。
+
+::: details 列宽分配规则
+
+静态表格使用原生表格布局，可用 `table-layout:fixed` 固定列宽。含链接、图片或锚点的表格在需要指定列宽或合并单元格时使用网格布局：列定义优先，其次取该列第一个有明确宽度的单列单元格，其余列平分剩余空间。不从跨列单元格的总宽度推算各列比例；建议直接声明 `col`。
+
+网格列宽接受数字（按 px）、`px` 和 `%`，不解析 `em`、`calc()` 或 CSS 变量列宽；百分比按表格宽度计算，指定宽度合计过大时横向溢出。支持 `col` / `colgroup` 的 `span`（1–99），多余的列定义不扩张交互网格。原生布局与网格布局不保证像素级一致，请在目标平台确认效果。
+:::
 
 ### 目录与锚点
 
@@ -175,9 +182,11 @@ async function jump(id: string) {
 </script>
 ```
 
-标题优先使用 HTML 的 `id`，没有可用 ID 时生成编号；重复 ID 的第一个节点保留原 ID，后续同名标题获得独立编号。内容变化后请重新读取目录。空标题仍保留，业务可按 `text` 过滤。普通元素也可通过 ID 定位；`source`、`thead`、`tbody`、`tfoot`、`tr` 不作为定位目标，可将 ID 放在表格、单元格或内部标题上。
+标题优先使用 HTML 的 `id`，没有可用 ID 时生成编号；重复 ID 的第一个节点保留原 ID，后续同名标题获得独立编号。内容变化后请重新读取目录。空标题仍保留，业务可按 `text` 过滤。普通元素也可通过 ID 定位；`source`、`col`、`colgroup`、`thead`、`tbody`、`tfoot`、`tr` 不作为定位目标，可将 ID 放在表格、单元格或内部标题上。
 
 组件不自动执行 `href="#intro"` 的跳转。业务在 `link-click` 中取出锚点 ID，再调用定位方法；带 URL 编码的片段由业务解码。隐藏、未渲染、已删除的目标以及内容更新期间失效的查询会返回 rejected Promise。
+
+`scrollToAnchor()` 在动画结束后重新测量并最多校正一次，减少滚动期间图片加载引起的偏移。新的定位请求、内容替换或组件卸载会中断旧请求并 reject。方法完成后不持续跟随布局变化；后续图片加载完成可按需再次定位，建议提前设置图片宽高。
 
 ::: details 在 scroll-view 中定位
 `scrollToAnchor()` 只滚动页面。容器内请用 `getAnchorRect(id)` 获取位置，并用同一套 `uni.createSelectorQuery()` 查询容器的 `top` 与 `scrollTop`，换算后更新容器的 `scroll-top`：
@@ -191,27 +200,63 @@ const nextScrollTop = currentScrollTop + anchor.top - container.top - offset
 
 ## 内容形态
 
+### 编辑器内容
+
+将编辑器导出的 HTML 传给 `content`：Quill 2 使用 `getSemanticHTML()`，wangEditor 使用 `getHtml()`，TinyMCE 使用 `getContent()`。无需加载编辑器的 CSS。
+
+```vue
+<wd-rich-text :content="htmlFromEditor" @link-click="handleLink" />
+```
+
+支持标准段落、空段落、嵌套列表、图注和代码空白。内置 Quill 的 `ql-align-center/right/justify`、`ql-indent-1`–`8`（每级 3em）、`ql-size-small/large/huge`、`ql-font-serif/monospace` 样式；任务列表的勾选状态只读展示。其他自定义类可用 `class-styles` 映射。
+
+已用 Quill 2.0.3、wangEditor 5.1.23、TinyMCE 7.9.1 的正式 API 导出样本做回归。编辑器内的 DOM、Delta/JSON、自定义插件和完整编辑器主题不在此范围；代码块保留文本与缩进，不自动进行语法高亮。
+
 ### 音视频
 
 在 HTML 中使用 `video`、`audio`，也可通过直接子级 `source` 提供多个来源。媒体不会自动播放；视频提供原生控件，音频提供播放与暂停按钮。
 
+给媒体设置唯一的 `id`，即可播放、暂停或跳转进度。需要定位到媒体时，同时开启 `enable-anchor`。
+
 ```vue
 <template>
-  <wd-rich-text ref="richText" :content="content" />
+  <wd-button @click="locateVideo">定位视频</wd-button>
+  <wd-button @click="richText?.playMedia('trip')">播放视频</wd-button>
+  <wd-button @click="richText?.pauseMedia('trip')">暂停视频</wd-button>
+  <wd-button @click="richText?.seekMedia('trip', 5)">跳至 5 秒</wd-button>
+  <wd-rich-text ref="richText" :content="content" enable-anchor @media-timeupdate="handleProgress" />
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
 import { onHide } from '@dcloudio/uni-app'
-import type { RichTextExpose } from '@/uni_modules/wot-ui/components/wd-rich-text/types'
+import type { RichTextExpose, RichTextMediaTimeUpdate } from '@/uni_modules/wot-ui/components/wd-rich-text/types'
 
 const richText = ref<RichTextExpose>()
-const content = '<video src="https://example.com/trip.mp4"></video><audio title="阅读时光" src="https://example.com/music.mp3"></audio>'
+const content = '<video id="trip" src="https://example.com/trip.mp4"></video><audio id="music" title="阅读时光" src="https://example.com/music.mp3"></audio>'
+async function locateVideo() {
+  try {
+    await richText.value?.scrollToAnchor('trip', { offset: 16 })
+  } catch {
+    uni.showToast({ title: '片段暂时无法定位', icon: 'none' })
+  }
+}
+function handleProgress({ id, currentTime, duration }: RichTextMediaTimeUpdate) {
+  console.log(id, currentTime, duration)
+}
 onHide(() => richText.value?.pauseMedia())
 </script>
 ```
 
-播放时会暂停同一组件内的其他媒体。页面隐藏时建议调用 `pauseMedia()`。视频封面请使用 HTTP(S) 网络图片地址。请替换示例地址，并确认目标平台支持资源格式及网络访问。
+定位和跳转进度不会主动播放。建议在用户点击时直接调用播放方法；是否实际播放以 `media-play` 等平台事件为准。播放时会暂停同一组件内的其他媒体，页面隐藏时可用 `pauseMedia()` 暂停全部。
+
+三个控制方法返回 `boolean`：`true` 表示已发送控制指令，不代表资源已加载或播放、跳转已完成；目标尚未挂载、加载失败、ID 为空/不存在/重复，或秒数不是非负有限数时返回 `false`。请在组件 `load` 后调用。ID 最多 128 个字符串代码单元，不含空白或控制字符，建议在整篇内容中唯一。
+
+`media-play`、`media-pause`、`media-ended` 和 `media-timeupdate` 包含媒体的 HTML `id` 与当前来源 `src`；未设置有效 ID 时 `id` 为空字符串。进度单位为秒，频率由平台决定，未知时长为 0；超出时长的跳转和资源未就绪时的跳转由平台处理。
+
+视频封面请使用 HTTP(S) 网络图片地址。请替换示例地址，并确认目标平台支持资源格式及网络访问。
+
+所有来源都失败后，组件显示失败占位并触发 `error`，不会自动循环重试。修正资源地址后更新 `content` 即可重新加载；若要重试原地址，可由业务更新组件的 `key` 重新挂载。重新挂载会重置该组件内全部媒体的播放进度，并保持不自动播放。演示页在失败后提供了“重新加载音视频”入口。
 
 ### 长文章
 
@@ -259,13 +304,14 @@ const expanded = ref(false)
 | 事件名称    | 说明                                                         | 参数                                                                                                          |
 | ----------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
 | image-load  | 原内容中的图片成功加载，每个图片节点一次；不包含占位图       | `{ src: string, index: number, width: number, height: number }`，宽高为实际像素尺寸                           |
-| load        | 成功解析及节点更新完成，包含过滤后为空的情况；不等待图片加载 | `{ imageCount: number }`                                                                                      |
+| load        | 成功解析及节点更新完成，包含过滤后为空的情况；不等待图片或音视频资源加载 | `{ imageCount: number }`                                                                                      |
 | error       | 解析或资源错误                                               | parse：`{ source, message, code? }`；image：`{ source, src, index }`；audio/video：`{ source, src, message }` |
 | link-click  | 点击有有效地址的链接，包括图片链接                           | `{ href: string }`                                                                                            |
 | image-click | 点击普通图片，无论是否开启自动预览；加载失败的图片不触发     | `{ src: string, index: number }`                                                                              |
-| media-play  | 音视频开始播放                                               | `{ type: 'video' \| 'audio', src: string }`                                                                   |
+| media-play  | 音视频开始播放                                               | `{ id: string, type: 'video' \| 'audio', src: string }`                                                                   |
 | media-pause | 音视频暂停                                                   | 同上                                                                                                          |
 | media-ended | 音视频播放结束                                               | 同上                                                                                                          |
+| media-timeupdate | 播放进度更新 | `{ id, type, src, currentTime: number, duration: number }`，单位秒 |
 
 图片 `index` 为内容中的出现顺序，从 0 开始，包含图片链接及没有有效地址的图片。
 
@@ -277,7 +323,9 @@ const expanded = ref(false)
 | getAnchorRect  | 查询目标在内容视口中的位置                                 | `id: string`                                                                     | `Promise<{ top, left, width, height }>`    |
 | scrollToAnchor | 页面滚动至目标；offset 为顶部预留距离，duration 为动画时长 | `id: string, options?: { offset?: number, duration?: number }`，默认 0px / 300ms | `Promise<void>`                            |
 | getText        | 获取过滤后的纯文本，保留段落、换行和图片替代文字           | -                                                                                | `string`                                   |
-| pauseMedia     | 暂停当前实例的全部媒体                                     | -                                                                                | `void`                                     |
+| playMedia | 播放指定媒体 | `id: string` | `boolean` |
+| pauseMedia | 暂停指定媒体；不传 ID 暂停全部，至少一个已发送指令时返回 true | `id?: string` | `boolean` |
+| seekMedia | 跳转播放进度，不主动播放 | `id: string, seconds: number` | `boolean` |
 
 ## Slots
 
@@ -293,5 +341,7 @@ const expanded = ref(false)
 | --wot-rich-text-font-size         | 正文字号             |
 | --wot-rich-text-line-height       | 正文行高，默认 `1.7` |
 | --wot-rich-text-link-color        | 链接颜色             |
+| --wot-rich-text-video-height      | 未指定内容高度时的视频高度，默认 `225px` |
+| --wot-rich-text-image-state-min-height | 图片加载或失败时的最小高度，默认使用基础尺寸变量 `--wot-n-48`（`48px`） |
 | --wot-rich-text-image-state-color | 图片状态文字颜色     |
 | --wot-rich-text-image-state-bg    | 图片状态背景色       |

@@ -3,6 +3,14 @@ import type { RichTextInputNode } from './types'
 import { RichTextParseError, richTextLimits } from './limits'
 
 type ElementNode = Extract<RichTextInputNode, { type: 'element' }>
+
+/** 列布局只接受确定的 px / % 宽度；auto、CSS 变量等交给自动列处理。 */
+function columnWidth(node: ElementNode): string | undefined {
+  const style = getStyleValue(node.attrs?.style || '', 'width')
+  const value = style ?? node.attrs?.width
+  if (!value || !/^(?:\d+(?:\.\d+)?)(?:px|%)?$/.test(value)) return
+  return /^\d+(?:\.\d+)?$/.test(value) ? `${value}px` : value
+}
 export interface RichTextTableCell {
   node: ElementNode
   row: number
@@ -83,5 +91,29 @@ export function layoutTable(table: ElementNode) {
     })
     rowOffset += rows.length
   }
-  return { cells, columns, captions, merged }
+  const widths: (string | undefined)[] = Array.from({ length: columns })
+  let columnIndex = 0
+  let declaredColumns = 0
+  const addColumns = (node: ElementNode, inheritedWidth?: string) => {
+    const span = Number(node.attrs?.span || 1)
+    declaredColumns += span
+    // 原生 col/span 也会扩张表格，不能只限制交互网格的可见列。
+    if (declaredColumns > richTextLimits.nodes) throw new RichTextParseError('OUTPUT_LIMIT', 'Table layout exceeds 10000 declared columns')
+    // 只读取实际单元格使用到的列；多余列声明不能扩张布局或绕过节点预算。
+    for (let i = 0; i < span && columnIndex < columns; i++) widths[columnIndex++] = columnWidth(node) ?? inheritedWidth
+  }
+  for (const node of table.children || []) {
+    if (node.type !== 'element') continue
+    if (node.name === 'col') addColumns(node)
+    else if (node.name === 'colgroup') {
+      const cols = (node.children || []).filter((child): child is ElementNode => child.type === 'element' && child.name === 'col')
+      if (cols.length) cols.forEach((col) => addColumns(col, columnWidth(node)))
+      else addColumns(node)
+    }
+  }
+  // col 优先；缺失时使用该列第一个有确定宽度的单列单元格，不猜测 colspan 内部的比例。
+  for (const cell of cells) {
+    if (cell.colSpan === 1 && widths[cell.column - 1] === undefined) widths[cell.column - 1] = columnWidth(cell.node)
+  }
+  return { cells, columns, captions, merged, widths }
 }

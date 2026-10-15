@@ -49,6 +49,10 @@
         </demo-group-item>
       </demo-group>
       <demo-group title="布局能力">
+        <demo-group-item title="明确列宽与长文本">
+          <view class="page-rich-text__column-static"><wd-rich-text :content="staticColumnTableContent" /></view>
+          <view class="page-rich-text__column-grid"><wd-rich-text :content="columnTableContent" @link-click="handleLink" /></view>
+        </demo-group-item>
         <demo-group-item title="行内链接与换行">
           <view class="page-rich-text__inline"><wd-rich-text :content="inlineContent" @link-click="handleLink" /></view>
         </demo-group-item>
@@ -76,6 +80,11 @@
         </demo-group-item>
       </demo-group>
       <demo-group title="内容形态">
+        <demo-group-item title="编辑器真实导出">
+          <view v-for="(fixture, name) in editorFixtures" :key="name" :class="`page-rich-text__export-${name}`">
+            <wd-rich-text :content="fixture.html" @link-click="handleLink" />
+          </view>
+        </demo-group-item>
         <demo-group-item title="视频：点击加载示例">
           <wd-button v-if="!showVideo" size="small" @click="showVideo = true">加载视频</wd-button>
           <wd-rich-text v-else :content="videoContent" />
@@ -94,6 +103,8 @@
 </template>
 <script lang="ts" setup>
 import { ref } from 'vue'
+import editorFixtures from '../../../fixtures/rich-text-editors.json'
+import { columnTableContent, staticColumnTableContent } from '../../../fixtures/rich-text-tables'
 import type { RichTextExpose } from '../../../../src/uni_modules/wot-ui/components/wd-rich-text/types'
 import PageWraper from '../../../../src/components/page-wraper/page-wraper.vue'
 import DemoGroup from '../../../../src/components/demo-group/demo-group.vue'

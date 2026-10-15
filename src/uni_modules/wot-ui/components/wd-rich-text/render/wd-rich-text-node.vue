@@ -18,11 +18,17 @@
       :user-select="context?.selectable()"
     />
     <view v-else class="wd-rich-text__table" :style="node.tableStyle || node.style">
-      <wd-rich-text-node v-for="child in node.children" :key="child.id" :node="child" :link-href="linkHref" />
+      <template v-for="child in node.children" :key="child.id">
+        <text v-if="child.kind === 'text'" class="wd-rich-text__text" :selectable="context?.selectable()">{{ child.text }}</text>
+        <wd-rich-text-node v-else :node="child" :link-href="linkHref" />
+      </template>
     </view>
   </view>
   <view :id="anchorDomId" v-else-if="node.kind === 'link'" class="wd-rich-text__link" :style="node.style" @tap.stop="handleLink">
-    <wd-rich-text-node v-for="child in node.children" :key="child.id" :node="child" :link-href="node.href" />
+    <template v-for="child in node.children" :key="child.id">
+      <text v-if="child.kind === 'text'" class="wd-rich-text__text" :selectable="context?.selectable()">{{ child.text }}</text>
+      <wd-rich-text-node v-else :node="child" :link-href="node.href" />
+    </template>
   </view>
   <view
     v-else-if="node.kind === 'image'"
@@ -78,8 +84,12 @@
   </view>
   <wd-rich-text-media v-else-if="node.kind === 'media'" :node="node" :anchor-id="anchorDomId" />
   <view v-else :id="anchorDomId" :class="['wd-rich-text__element', `wd-rich-text__${node.name}`]" :style="node.style">
+    <!-- 纯文本没有交互或生命周期，直接输出，避免长表格和混排内容产生大量递归实例。 -->
     <text v-if="node.marker" class="wd-rich-text__marker">{{ node.marker }}</text>
-    <wd-rich-text-node v-for="child in node.children" :key="child.id" :node="child" :link-href="linkHref" />
+    <template v-for="child in node.children" :key="child.id">
+      <text v-if="child.kind === 'text'" class="wd-rich-text__text" :selectable="context?.selectable()">{{ child.text }}</text>
+      <wd-rich-text-node v-else :node="child" :link-href="linkHref" />
+    </template>
   </view>
 </template>
 <script lang="ts" setup>

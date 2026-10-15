@@ -6,10 +6,138 @@ import { compileRichText } from '../../src/uni_modules/wot-ui/components/wd-rich
 import { parseHtml, decodeEntities, sanitizeStyle, sanitizeUrl } from '../../src/uni_modules/wot-ui/components/wd-rich-text/parser'
 import type { RichTextRenderNode } from '../../src/uni_modules/wot-ui/components/wd-rich-text/types'
 import { staticContent, inlineContent, imageContent, tableContent, staticTableContent, longContent, listContent } from '../fixtures/rich-text'
+import editorFixtures from '../fixtures/rich-text-editors.json'
+import { columnTableContent, staticColumnTableContent } from '../fixtures/rich-text-tables'
+import { getPlainText } from '../../src/uni_modules/wot-ui/components/wd-rich-text/parser'
+import { layoutTable } from '../../src/uni_modules/wot-ui/components/wd-rich-text/table'
 
 function flatten(nodes: RichTextRenderNode[]): RichTextRenderNode[] {
   return nodes.flatMap((node) => [node, ...flatten(node.children)])
 }
+
+describe('编辑器正式导出内容兼容', () => {
+  test.each(Object.entries(editorFixtures))('%s 导出的段落、链接和空行可解析，编辑器元数据不进入渲染树', (_, fixture) => {
+    const input = parseHtml(fixture.html)
+    const result = compileRichText(input)
+    expect(getPlainText(input)).toContain('山野来信')
+    expect(getPlainText(input)).toContain('慢下来，听见风。')
+    expect(flatten(result.nodes).some((node) => node.kind === 'link' && node.href.endsWith('journal/gear'))).toBe(true)
+    expect(JSON.stringify(result)).not.toMatch(/data-language|data-list|data-href|contenteditable|target|noopener/)
+  })
+  test('Quill 字号字体、缩进、空段落、嵌套列表和任务状态均保留', () => {
+    const result = compileRichText(parseHtml(editorFixtures.quill.html))
+    const native = JSON.stringify(result.nodes[0].nativeNodes)
+    expect(native).toContain('font-size:1.5em;')
+    expect(native).toContain('font-family:Georgia, serif;')
+    expect(native).toContain('padding-left:3em;')
+    expect(native).toContain('min-height:1em;')
+    expect(native).toContain('☑')
+    expect(result.nodes[0].nativeNodes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'ol',
+          children: [expect.objectContaining({ name: 'li', children: expect.arrayContaining([expect.objectContaining({ name: 'ul' })]) })]
+        })
+      ])
+    )
+    expect(flatten(result.nodes).find((node) => node.name === 'li')?.marker).toBe('☐\u00a0')
+    expect(getPlainText(parseHtml(editorFixtures.quill.html))).toContain('const trip = "weekend";')
+  })
+  test('wangEditor 图片尺寸、代码缩进，以及 TinyMCE 图注和列宽保留', () => {
+    const wang = compileRichText(parseHtml(editorFixtures.wangEditor.html))
+    expect(wang.images).toEqual(['/static/icon/app.png'])
+    expect(flatten(wang.nodes).find((node) => node.kind === 'image')?.style).toContain('width:80px;height:80px;')
+    expect(getPlainText(parseHtml(editorFixtures.wangEditor.html))).toContain('\n  go();')
+    const tiny = compileRichText(parseHtml(editorFixtures.tinyMCE.html, { baseUrl: 'https://example.test/' }))
+    expect(tiny.images).toEqual(['https://example.test/static/icon/app.png'])
+    expect(getPlainText(parseHtml(editorFixtures.tinyMCE.html))).toContain('01 / 在路上')
+    expect(flatten(tiny.nodes).find((node) => node.kind === 'table')?.tableStyle).toContain('grid-template-columns:25% 75%')
+  })
+  test('编辑器预设遵循配置与内联样式优先级，未知类和危险样式仍过滤', () => {
+    const input = parseHtml('<p class="ql-size-large ql-font-monospace constructor" style="font-size:18px;position:fixed">A</p>', {
+      classStyles: { 'ql-size-large': 'font-size:20px;background-image:url(javascript:x)' }
+    })
+    expect(input).toMatchObject([{ attrs: { style: 'font-size:18px;font-family:monospace;' } }])
+    expect(parseHtml('<p class="ql-size-small">A</p><p class="ql-size-huge">B</p>')).toMatchObject([
+      { attrs: { style: 'font-size:0.75em;' } },
+      { attrs: { style: 'font-size:2.5em;' } }
+    ])
+  })
+})
+
+describe('表格列宽与长文本', () => {
+  const table = (content: string) => {
+    const node = parseHtml(content)[0]
+    if (node.type !== 'element') throw new Error('Expected a table')
+    return node
+  }
+  test('原生路径保留列节点，交互路径保留同一列比例与合并关系，不修改输入', () => {
+    const input = parseHtml(columnTableContent)
+    const before = JSON.stringify(input)
+    const grid = compileRichText(input).nodes[0]
+    expect(grid.tableStyle).toContain('grid-template-columns:25% 75%')
+    expect(grid.children[0].style).toContain('grid-column:1 / span 2')
+    expect(grid.children[1].style).toContain('grid-row:2 / span 2')
+    expect(grid.children[2].style).toContain('width:auto;min-width:0;')
+    expect(grid.tableStyle).toContain('overflow-wrap:anywhere')
+    expect(JSON.stringify(input)).toBe(before)
+    const native = compileRichText(parseHtml(staticColumnTableContent)).nodes[0].nativeNodes
+    expect(JSON.stringify(native)).toContain('colgroup')
+    expect(JSON.stringify(native)).toContain('width:25%')
+    expect(JSON.stringify(native)).toContain('table-layout:fixed')
+  })
+  test('col 优先，span 展开，缺失列取首个有效单列单元格，跨列宽度不猜测', () => {
+    const layout = layoutTable(
+      table(
+        '<table><colgroup><col width="80" span="2"><col></colgroup><tr><td width="500">A</td><td>B</td><td style="width:40%">C</td><td>D</td></tr><tr><td colspan="4" width="900">E</td></tr></table>'
+      )
+    )
+    expect(layout.widths).toEqual(['80px', '80px', '40%', undefined])
+    expect(
+      layoutTable(table('<table><colgroup span="2" width="30%"></colgroup><tr><td>A</td><td>B</td><td width="120">C</td></tr></table>')).widths
+    ).toEqual(['30%', '30%', '120px'])
+    expect(layoutTable(table('<table><colgroup width="30%"><col><col width="20%"></colgroup><tr><td>A</td><td>B</td></tr></table>')).widths).toEqual([
+      '30%',
+      '20%'
+    ])
+  })
+  test('按最终 width 声明取值，auto 与不确定单位回落，缺失列自动分配', () => {
+    const node = table(
+      '<table><col width="50" style="width:auto"><col style="width:calc(100% - 2px)"><tr><td style="width:20%;width:30%">A<a href="/x">链接</a></td><td style="width:4em">B</td></tr></table>'
+    )
+    expect(layoutTable(node).widths).toEqual(['30%', undefined])
+    expect(compileRichText([node]).nodes[0].tableStyle).toContain('grid-template-columns:30% minmax(0,1fr)')
+    expect(sanitizeStyle('table-layout:fixed;table-layout:invalid')).toBe('table-layout:fixed;')
+    expect(
+      compileRichText(parseHtml('<table style="display:none"><col width="80"><tr><td><a href="/">隐藏表格</a></td></tr></table>')).nodes[0].tableStyle
+    ).toContain(';display:none;grid-template-columns:80px;')
+  })
+  test('嵌套表格列宽互不污染，多余列定义不创建可见组件或锚点', () => {
+    const input = parseHtml(
+      '<table><colgroup id="hidden" span="99" width="20%"></colgroup><tr><td><a href="/a">A</a><table><col width="40"><tr><td><a href="/b">B</a></td></tr></table></td></tr></table>',
+      { enableAnchor: true }
+    )
+    const tables = flatten(compileRichText(input, true).nodes).filter((node) => node.kind === 'table')
+    expect(tables.map((node) => node.tableStyle?.match(/grid-template-columns:([^;]+)/)?.[1])).toEqual(['20%', '40px'])
+    expect(JSON.stringify(tables)).not.toContain('hidden')
+    expect(parseHtml('<col width="20"><p>正文</p>')).toMatchObject([{ name: 'p' }])
+  })
+  test('行列扩张仍受资源预算约束，列节点与属性经过统一清洗', () => {
+    for (const content of ['A', '<a href="/">A</a>']) {
+      expect(() =>
+        compileRichText(parseHtml('<table><colgroup>' + '<col span="99">'.repeat(102) + `</colgroup><tr><td>${content}</td></tr></table>`))
+      ).toThrow(expect.objectContaining({ code: 'OUTPUT_LIMIT' }))
+    }
+    expect(() =>
+      compileRichText(
+        parseHtml('<table><tr><td rowspan="99" colspan="99"><a href="/">A</a></td></tr>' + '<tr><td colspan="99">B</td></tr>'.repeat(99) + '</table>')
+      )
+    ).toThrow(expect.objectContaining({ code: 'OUTPUT_LIMIT' }))
+    expect(
+      parseHtml('<table><colgroup onclick="x"><col span="999999" width="javascript:x" style="width:expression(x);position:fixed"></colgroup></table>')
+    ).toMatchObject([{ children: [{ attrs: {}, children: [{ attrs: { style: '' } }] }] }])
+  })
+})
 
 describe('RichText 渲染决策', () => {
   test('静态段落整体合并且不修改输入', () => {
@@ -160,6 +288,21 @@ describe('RichText 正式 API', () => {
     uni.previewImage = vi.fn()
   })
   const global = { stubs: { 'rich-text': true } }
+  test('交互表格控制递归实例数量，文字选择切换、实体及链接更新正常', async () => {
+    const content = '<table>' + '<tr><td>文字 &amp; 实体</td><td><a href="/detail">查看<strong>详情</strong></a></td></tr>'.repeat(40) + '</table>'
+    const wrapper = mount(WdRichText, { global, props: { content, selectable: true } })
+    // 40 行各保留行、两个单元格、链接、加粗，共 200 个实例；文本不另占实例。
+    expect(wrapper.findAllComponents({ name: 'wd-rich-text-node' }).length).toBeLessThanOrEqual(201)
+    expect(wrapper.find('.wd-rich-text__td').text()).toBe('文字 & 实体')
+    expect(wrapper.findAll('.wd-rich-text__text').every((node) => node.attributes('selectable') === 'true')).toBe(true)
+    await wrapper.setProps({ selectable: false })
+    expect(wrapper.findAll('.wd-rich-text__text').every((node) => node.attributes('selectable') === 'false')).toBe(true)
+    await wrapper.setProps({ content: content.replaceAll('/detail', '/updated').replaceAll('详情', '新内容') })
+    await wrapper.find('.wd-rich-text__link').trigger('tap')
+    expect(wrapper.emitted('link-click')).toEqual([[{ href: '/updated' }]])
+    expect(wrapper.find('.wd-rich-text__strong').text()).toBe('新内容')
+    wrapper.unmount()
+  })
   test('默认空内容、样式透传和 getText', async () => {
     const wrapper = mount(WdRichText, { global, props: { customClass: 'article', customStyle: 'color: red;' }, slots: { default: '暂无内容' } })
     expect(wrapper.text()).toBe('暂无内容')
@@ -332,7 +475,7 @@ describe('RichText 常用内容扩展', () => {
         classStyles: { custom: 'color:blue;font-size:18px;position:fixed' }
       })
     ).toMatchObject([{ attrs: { style: 'color:green;line-height:2;text-align:center;font-size:18px;' } }])
-    expect(parseHtml('<div class="ql-indent-2">缩进</div>')).toMatchObject([{ attrs: { style: 'padding-left:4em;' } }])
+    expect(parseHtml('<div class="ql-indent-2">缩进</div>')).toMatchObject([{ attrs: { style: 'padding-left:6em;' } }])
     expect(sanitizeStyle('font-family:"A;B", "宋体";white-space:PRE-WRAP;display:flex;color:red')).toBe(
       'font-family:"A;B", "宋体";white-space:pre-wrap;color:red;'
     )
@@ -372,7 +515,7 @@ describe('RichText 交互合并表格与资源预算', () => {
         '<table><caption>标题</caption><tbody><tr><td rowspan="2">A<a href="/a">链接</a></td><td colspan="2">B</td></tr><tr><td>C</td><td>D</td></tr></tbody></table>'
       )
     ).nodes[0]
-    expect(table.tableStyle).toContain('grid-template-columns:repeat(3,minmax(0,1fr))')
+    expect(table.tableStyle).toContain('grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)')
     expect(table.children[0].style).toContain('grid-row:1')
     expect(table.children[1].style).toContain('grid-row:2 / span 2;grid-column:1 / span 1')
     expect(table.children[2].style).toContain('grid-row:2 / span 1;grid-column:2 / span 2')
@@ -413,7 +556,7 @@ describe('RichText 媒体生命周期', () => {
     expect(video.attributes('src')).toBe('/one.mp4')
     expect(video.attributes('onplay')).toBeUndefined()
     await video.trigger('play')
-    expect(wrapper.emitted('media-play')).toEqual([[{ type: 'video', src: '/one.mp4' }]])
+    expect(wrapper.emitted('media-play')).toEqual([[{ id: '', type: 'video', src: '/one.mp4' }]])
     await video.trigger('error')
     await nextTick()
     expect(video.attributes('src')).toBe('/two.mp4')
@@ -437,6 +580,39 @@ describe('RichText 媒体生命周期', () => {
     expect(videoContext.play).not.toHaveBeenCalled()
     wrapper.unmount()
   })
+  test('iOS 音频初始化时不向空资源播放器提交选项，仍由用户手动播放', async () => {
+    let onError = (_event: { errMsg: string; errCode: number }) => {}
+    const audio = {
+      src: '',
+      play: vi.fn(),
+      pause: vi.fn(),
+      stop: vi.fn(),
+      destroy: vi.fn(),
+      onPlay: vi.fn(),
+      onPause: vi.fn(),
+      onEnded: vi.fn(),
+      onTimeUpdate: vi.fn(),
+      onError: (callback: typeof onError) => {
+        onError = callback
+      }
+    }
+    for (const option of ['autoplay', 'loop', 'volume']) {
+      Object.defineProperty(audio, option, {
+        set() {
+          // 模拟 iOS 原生播放器对空资源配置的异步错误回调。
+          if (!audio.src) queueMicrotask(() => onError({ errMsg: 'MediaError', errCode: -5 }))
+        }
+      })
+    }
+    uni.createInnerAudioContext = vi.fn(() => audio as unknown as UniApp.InnerAudioContext)
+    const wrapper = mount(WdRichText, { global, props: { content: '<audio src="/music.mp3" loop muted></audio>' } })
+    await flushPromises()
+    expect(wrapper.emitted('error')).toBeUndefined()
+    expect(audio.play).not.toHaveBeenCalled()
+    await wrapper.get('.wd-rich-text__audio-control').trigger('tap')
+    expect(audio.play).toHaveBeenCalledOnce()
+    wrapper.unmount()
+  })
   test('音频手动播放、互斥暂停、重试、销毁与延迟回调隔离', async () => {
     function createAudio() {
       let play = () => {}
@@ -452,6 +628,7 @@ describe('RichText 媒体生命周期', () => {
         pause: vi.fn(() => pause()),
         stop: vi.fn(),
         destroy: vi.fn(),
+        onTimeUpdate: vi.fn(),
         onPlay: (callback: () => void) => {
           play = callback
         },
@@ -481,7 +658,7 @@ describe('RichText 媒体生命周期', () => {
     expect(first.api.loop).toBe(true)
     expect(first.api.volume).toBe(0)
     await wrapper.findAll('.wd-rich-text__audio-control')[0].trigger('tap')
-    expect(wrapper.emitted('media-play')?.[0]).toEqual([{ type: 'audio', src: '/one.mp3' }])
+    expect(wrapper.emitted('media-play')?.[0]).toEqual([{ id: '', type: 'audio', src: '/one.mp3' }])
     first.error()
     await nextTick()
     expect(first.api.src).toBe('/backup.mp3')
@@ -491,7 +668,7 @@ describe('RichText 媒体生命周期', () => {
     wrapper.vm.pauseMedia()
     expect(second.api.pause).toHaveBeenCalled()
     second.ended()
-    expect(wrapper.emitted('media-ended')).toEqual([[{ type: 'audio', src: '/two.mp3' }]])
+    expect(wrapper.emitted('media-ended')).toEqual([[{ id: '', type: 'audio', src: '/two.mp3' }]])
     await wrapper.setProps({ content: '' })
     expect(first.api.destroy).toHaveBeenCalledOnce()
     expect(second.api.destroy).toHaveBeenCalledOnce()
@@ -783,6 +960,213 @@ describe('目录与锚点', () => {
     } finally {
       wrapper.unmount()
       spy.mockRestore()
+    }
+  })
+})
+
+describe('RichText 媒体控制', () => {
+  const global = { stubs: { 'rich-text': true } }
+  function setupVideo(content = '<video id="trip" src="/trip.mp4"></video><video id="lake" src="/lake.mp4"></video>') {
+    const contexts: Array<{ play: ReturnType<typeof vi.fn>; pause: ReturnType<typeof vi.fn>; seek: ReturnType<typeof vi.fn> }> = []
+    uni.createVideoContext = vi.fn(() => {
+      const context = { play: vi.fn(), pause: vi.fn(), seek: vi.fn() }
+      contexts.push(context)
+      return context as unknown as UniApp.VideoContext
+    })
+    return { wrapper: mount(WdRichText, { global, props: { content } }), contexts }
+  }
+  test('通过 HTML ID 同步控制目标，未开启锚点也可控制；平台事件确认播放并暂停其他媒体', async () => {
+    const { wrapper, contexts } = setupVideo()
+    expect(wrapper.vm.playMedia('trip')).toBe(true)
+    expect(contexts[0].play).toHaveBeenCalledOnce()
+    expect(contexts[1].play).not.toHaveBeenCalled()
+    expect(wrapper.emitted('media-play')).toBeUndefined()
+    expect(wrapper.vm.seekMedia('lake', 5.5)).toBe(true)
+    expect(contexts[1].seek).toHaveBeenCalledWith(5.5)
+    expect(contexts[1].play).not.toHaveBeenCalled()
+    await wrapper.findAll('video')[0].trigger('play')
+    expect(wrapper.emitted('media-play')).toEqual([[{ id: 'trip', type: 'video', src: '/trip.mp4' }]])
+    expect(contexts[1].pause).toHaveBeenCalledOnce()
+    expect(wrapper.vm.pauseMedia('trip')).toBe(true)
+    expect(contexts[0].pause).toHaveBeenCalledOnce()
+    expect(wrapper.vm.pauseMedia()).toBe(true)
+    expect(contexts[1].pause).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
+  })
+  test('缺失、空、重复 ID 和非法进度不会向平台发送指令', async () => {
+    const { wrapper, contexts } = setupVideo('<video id="same" src="/a.mp4"></video><video id="same" src="/b.mp4"></video>')
+    for (const id of ['', 'missing', 'same']) {
+      expect(wrapper.vm.playMedia(id)).toBe(false)
+      expect(wrapper.vm.pauseMedia(id)).toBe(false)
+      expect(wrapper.vm.seekMedia(id, 5)).toBe(false)
+    }
+    await wrapper.setProps({ content: '<video id="valid" src="/a.mp4"></video>' })
+    for (const seconds of [-1, NaN, Infinity]) expect(wrapper.vm.seekMedia('valid', seconds)).toBe(false)
+    contexts.forEach((context) => {
+      expect(context.play).not.toHaveBeenCalled()
+      expect(context.seek).not.toHaveBeenCalled()
+    })
+    expect(wrapper.vm.seekMedia('valid', 0)).toBe(true)
+    wrapper.unmount()
+  })
+  test('媒体加载失败、内容替换及卸载后控制返回 false，旧节点不再上报进度', async () => {
+    const { wrapper, contexts } = setupVideo('<video id="trip" src="/trip.mp4"></video>')
+    const video = wrapper.find('video')
+    await video.trigger('timeupdate', { detail: { currentTime: 2.5, duration: 20 } })
+    expect(wrapper.emitted('media-timeupdate')).toEqual([[{ id: 'trip', type: 'video', src: '/trip.mp4', currentTime: 2.5, duration: 20 }]])
+    await video.trigger('timeupdate', { detail: { currentTime: NaN, duration: Infinity } })
+    expect(wrapper.emitted('media-timeupdate')?.[1][0]).toMatchObject({ currentTime: 0, duration: 0 })
+    await video.trigger('error')
+    expect(wrapper.vm.playMedia('trip')).toBe(false)
+    expect(wrapper.vm.pauseMedia('trip')).toBe(false)
+    expect(wrapper.vm.seekMedia('trip', 5)).toBe(false)
+    await wrapper.setProps({ content: '' })
+    expect(wrapper.vm.playMedia('trip')).toBe(false)
+    expect(contexts[0].play).not.toHaveBeenCalled()
+    const exposed = wrapper.vm
+    wrapper.unmount()
+    expect(exposed.pauseMedia()).toBe(false)
+  })
+  test('来源切换等待渲染时，主动暂停取消续播', async () => {
+    const { wrapper, contexts } = setupVideo('<video id="trip"><source src="/a.mp4"><source src="/b.mp4"></video>')
+    wrapper.vm.playMedia('trip')
+    const switching = wrapper.find('video').trigger('error')
+    wrapper.vm.pauseMedia('trip')
+    await switching
+    await nextTick()
+    expect(wrapper.find('video').attributes('src')).toBe('/b.mp4')
+    expect(contexts[0].play).toHaveBeenCalledOnce()
+    wrapper.unmount()
+  })
+  test('音频按 ID 控制，进度来自音频上下文；旧回调在内容替换后失效', async () => {
+    const callbacks: Record<string, () => void> = {}
+    const audio = {
+      src: '',
+      currentTime: 3.25,
+      duration: 18,
+      play: vi.fn(),
+      pause: vi.fn(),
+      seek: vi.fn(),
+      stop: vi.fn(),
+      destroy: vi.fn(),
+      onPlay: (cb: () => void) => {
+        callbacks.play = cb
+      },
+      onPause: (cb: () => void) => {
+        callbacks.pause = cb
+      },
+      onEnded: (cb: () => void) => {
+        callbacks.ended = cb
+      },
+      onError: vi.fn(),
+      onTimeUpdate: (cb: () => void) => {
+        callbacks.time = cb
+      }
+    }
+    uni.createInnerAudioContext = vi.fn(() => audio as unknown as UniApp.InnerAudioContext)
+    const wrapper = mount(WdRichText, { global, props: { content: '<audio id="music" src="/music.mp3"></audio>' } })
+    expect(wrapper.vm.playMedia('music')).toBe(true)
+    expect(audio.play).toHaveBeenCalledOnce()
+    callbacks.play()
+    expect(wrapper.emitted('media-play')?.[0][0]).toMatchObject({ id: 'music', type: 'audio' })
+    expect(wrapper.vm.seekMedia('music', 5)).toBe(true)
+    expect(audio.seek).toHaveBeenCalledWith(5)
+    callbacks.time()
+    expect(wrapper.emitted('media-timeupdate')?.[0][0]).toEqual({ id: 'music', type: 'audio', src: '/music.mp3', currentTime: 3.25, duration: 18 })
+    wrapper.vm.pauseMedia('music')
+    expect(audio.pause).toHaveBeenCalledOnce()
+    callbacks.pause()
+    callbacks.ended()
+    expect(wrapper.emitted('media-pause')?.[0][0]).toMatchObject({ id: 'music' })
+    expect(wrapper.emitted('media-ended')?.[0][0]).toMatchObject({ id: 'music' })
+    await wrapper.setProps({ content: '' })
+    callbacks.time()
+    expect(wrapper.emitted('media-timeupdate')).toHaveLength(1)
+    expect(audio.destroy).toHaveBeenCalledOnce()
+    wrapper.unmount()
+  })
+})
+
+describe('RichText 媒体锚点与布局校正', () => {
+  const global = { stubs: { 'rich-text': true } }
+  function mockPage() {
+    let scrollTop = 0
+    let targetTop = 200
+    const query = {
+      in: vi.fn(() => query),
+      select: vi.fn(() => query),
+      selectViewport: vi.fn(() => query),
+      boundingClientRect: vi.fn((callback) => {
+        callback({ top: targetTop - scrollTop, left: 0, width: 300, height: 100 })
+        return query
+      }),
+      scrollOffset: vi.fn((callback) => {
+        callback({ scrollTop })
+        return query
+      }),
+      exec: vi.fn()
+    }
+    const querySpy = vi.spyOn(uni, 'createSelectorQuery').mockReturnValue(query as any)
+    const scrollSpy = vi.spyOn(uni, 'pageScrollTo').mockImplementation((options) => {
+      scrollTop = options.scrollTop!
+      options.success?.({ errMsg: 'ok' })
+    })
+    return {
+      querySpy,
+      scrollSpy,
+      shift: () => {
+        targetTop += 80
+      }
+    }
+  }
+  test('滚动期间图片改变布局，动画结束后校正一次；定位媒体不会播放', async () => {
+    vi.useFakeTimers()
+    const page = mockPage()
+    const video = { play: vi.fn(), pause: vi.fn(), seek: vi.fn() }
+    uni.createVideoContext = vi.fn(() => video as unknown as UniApp.VideoContext)
+    const wrapper = mount(WdRichText, {
+      global,
+      props: { enableAnchor: true, content: '<img src="/cover.jpg"><video id="trip" src="/trip.mp4"></video>' }
+    })
+    try {
+      const locating = wrapper.vm.scrollToAnchor('trip', { offset: 40, duration: 300 })
+      await flushPromises()
+      expect(page.scrollSpy).toHaveBeenCalledWith(expect.objectContaining({ scrollTop: 160, duration: 300 }))
+      page.shift()
+      await wrapper.find('img').trigger('load')
+      await vi.advanceTimersByTimeAsync(300)
+      await locating
+      expect(page.scrollSpy).toHaveBeenCalledTimes(2)
+      expect(page.scrollSpy).toHaveBeenLastCalledWith(expect.objectContaining({ scrollTop: 240, duration: 0 }))
+      expect(video.play).not.toHaveBeenCalled()
+    } finally {
+      wrapper.unmount()
+      page.querySpy.mockRestore()
+      page.scrollSpy.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+  test('新定位取消旧定位的校正，内容替换取消尚未结束的定位', async () => {
+    vi.useFakeTimers()
+    const page = mockPage()
+    const wrapper = mount(WdRichText, { global, props: { enableAnchor: true, content: '<h2 id="a">章节</h2>' } })
+    try {
+      const first = wrapper.vm.scrollToAnchor('a', { duration: 300 }).catch((error: Error) => error.message)
+      await flushPromises()
+      await wrapper.vm.scrollToAnchor('a', { duration: 0 })
+      expect(await first).toMatch(/interrupted/)
+      expect(page.scrollSpy).toHaveBeenCalledTimes(2)
+      const stale = wrapper.vm.scrollToAnchor('a', { duration: 300 }).catch((error: Error) => error.message)
+      await flushPromises()
+      await wrapper.setProps({ content: '' })
+      expect(await stale).toMatch(/interrupted/)
+      await vi.advanceTimersByTimeAsync(300)
+      expect(page.scrollSpy).toHaveBeenCalledTimes(3)
+    } finally {
+      wrapper.unmount()
+      page.querySpy.mockRestore()
+      page.scrollSpy.mockRestore()
+      vi.useRealTimers()
     }
   })
 })

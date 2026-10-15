@@ -60,13 +60,22 @@ const defaultStyles: Record<string, string> = {
   ul: 'display:block;padding-left:24px;margin:0 0 12px;list-style-type:disc;',
   ol: 'display:block;padding-left:24px;margin:0 0 12px;list-style-type:decimal;',
   li: 'display:list-item;',
-  table: 'display:table;border-collapse:collapse;width:100%;',
+  table: 'display:table;border-collapse:collapse;width:100%;overflow-wrap:anywhere;',
   tbody: 'display:table-row-group;',
   thead: 'display:table-header-group;',
   tfoot: 'display:table-footer-group;',
   tr: 'display:table-row;',
-  td: 'display:table-cell;padding:8px;border:1px solid var(--wot-border-main);vertical-align:middle;',
-  th: 'display:table-cell;padding:8px;border:1px solid var(--wot-border-main);font-weight:bold;'
+  td: 'display:table-cell;box-sizing:border-box;padding:8px;border:1px solid var(--wot-border-main);vertical-align:middle;',
+  th: 'display:table-cell;box-sizing:border-box;padding:8px;border:1px solid var(--wot-border-main);font-weight:bold;'
+}
+
+/** 编辑器导出的任务列表仅展示完成状态，不改变原始内容。 */
+function taskMarker(node: Extract<RichTextInputNode, { type: 'element' }>): string | undefined {
+  return node.name === 'li' && node.attrs?.['data-list'] === 'checked'
+    ? '☑\u00a0'
+    : node.name === 'li' && node.attrs?.['data-list'] === 'unchecked'
+    ? '☐\u00a0'
+    : undefined
 }
 
 /** 展开列表后手动保留起始序号，不依赖跨组件 CSS counter。 */
@@ -148,7 +157,8 @@ export function compileRichText(input: RichTextInputNode[], enableAnchor = false
             ] || 'decimal'
           };`
         : ''
-    return (defaultStyles[node.name] || '') + listStyle + dimensions + (node.attrs?.style || '')
+    const emptyParagraph = node.name === 'p' && !(node.children || []).length ? 'min-height:1em;' : ''
+    return (defaultStyles[node.name] || '') + emptyParagraph + listStyle + dimensions + (node.attrs?.style || '')
   }
 
   function mark(node: RichTextInputNode): boolean {
@@ -178,7 +188,14 @@ export function compileRichText(input: RichTextInputNode[], enableAnchor = false
       : node.name
     const attrs: Record<string, string> = { ...node.attrs, style: styleOf(node) }
     delete attrs.id
-    return { name, attrs, children: (node.children || []).map(toNative) }
+    delete attrs['data-list']
+    const children = (node.children || []).map(toNative)
+    const marker = taskMarker(node)
+    if (marker) {
+      attrs.style += ';display:block;list-style-type:none;'
+      children.unshift({ type: 'text', text: marker })
+    }
+    return { name, attrs, children }
   }
 
   function visit(nodes: RichTextInputNode[], allowBlocks: boolean): RichTextRenderNode[] {
@@ -190,6 +207,8 @@ export function compileRichText(input: RichTextInputNode[], enableAnchor = false
       batch = []
     }
     for (const node of nodes) {
+      // 列定义只参与表格布局，不生成可见组件或锚点宿主。
+      if (node.type === 'element' && ['col', 'colgroup'].includes(node.name)) continue
       const block = node.type === 'element' && blockTags.has(node.name) && !getStyleValue(node.attrs?.style || '', 'display')?.startsWith('inline')
       if (allowBlocks && block && !interactive.get(node)) {
         batch.push(toNative(node))
@@ -224,6 +243,7 @@ export function compileRichText(input: RichTextInputNode[], enableAnchor = false
       } else if (node.name === 'video' || node.name === 'audio') {
         base.kind = 'media'
         base.mediaType = node.name
+        base.mediaId = node.attrs?.id || ''
         const height = getStyleValue(base.style, 'height')
         base.fixedHeight = !!height && height.toLowerCase() !== 'auto'
         base.sources = [
@@ -237,11 +257,13 @@ export function compileRichText(input: RichTextInputNode[], enableAnchor = false
         base.style = 'display:block;width:100%;' + base.style
       } else if (node.name === 'table') {
         base.kind = 'table'
+        const layout = layoutTable(node)
         if (!(node.children || []).some((child) => interactive.get(child))) base.nativeNodes = [toNative(node)]
         else {
-          const layout = layoutTable(node)
-          if (layout.merged) {
-            base.tableStyle = base.style + `;display:grid;grid-template-columns:repeat(${layout.columns},minmax(0,1fr));`
+          if (layout.merged || layout.widths.some((width) => width !== undefined)) {
+            const tracks = layout.widths.map((width) => width ?? 'minmax(0,1fr)').join(' ')
+            const display = getStyleValue(base.style, 'display') === 'none' ? 'none' : 'grid'
+            base.tableStyle = base.style + `;display:${display};grid-template-columns:${tracks};`
             base.children = layout.captions.map((caption, index) => {
               const rendered = visit([caption], false)[0]
               rendered.style += `;display:block;grid-column:1 / -1;grid-row:${index + 1};`
@@ -252,13 +274,14 @@ export function compileRichText(input: RichTextInputNode[], enableAnchor = false
               rendered.style =
                 cell.inheritedStyle +
                 rendered.style +
-                `;display:block;min-width:0;grid-row:${cell.row} / span ${cell.rowSpan};grid-column:${cell.column} / span ${cell.colSpan};`
+                `;display:block;width:auto;min-width:0;grid-row:${cell.row} / span ${cell.rowSpan};grid-column:${cell.column} / span ${cell.colSpan};`
               base.children.push(rendered)
             }
           } else base.children = visit(node.children || [], false)
         }
       } else {
         base.kind = node.name === 'a' ? 'link' : 'element'
+        base.marker = taskMarker(node)
         base.href = node.attrs?.href || ''
         base.children = visit(node.children || [], ['div', 'li', 'td', 'th', 'dd', 'figure', 'figcaption'].includes(node.name))
         if (node.name === 'ol' || node.name === 'ul') {
@@ -266,7 +289,8 @@ export function compileRichText(input: RichTextInputNode[], enableAnchor = false
           const type = getStyleValue(base.style, 'list-style-type') || (node.name === 'ol' ? 'decimal' : 'disc')
           for (const child of base.children) {
             if (child.name !== 'li') continue
-            child.marker = listMarker(number++, type)
+            child.marker = child.marker ?? listMarker(number, type)
+            number++
             child.style += ';display:block;list-style-type:none;'
           }
         }

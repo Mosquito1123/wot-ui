@@ -15,6 +15,7 @@
       @play="handlePlay"
       @pause="handlePause"
       @ended="handleEnded"
+      @timeupdate="handleTimeUpdate"
       @error="handleError"
     />
     <button v-else class="wd-rich-text__audio-control" @tap.stop="toggleAudio">{{ playing ? 'Ⅱ' : '▶' }} {{ node.alt }}</button>
@@ -48,7 +49,7 @@ let unregisterAnchor: (() => void) | undefined
 let playbackRequested = false
 let audio: UniApp.InnerAudioContext | undefined
 let video: UniApp.VideoContext | undefined
-const unregister = context?.registerMedia(mediaId, pause)
+const unregister = context?.registerMedia(mediaId, { id: props.node.mediaId || '', play, pause, seek })
 
 onMounted(() => {
   if (props.node.anchorId && props.anchorId)
@@ -63,16 +64,20 @@ onMounted(() => {
       return
     }
     audio = uni.createInnerAudioContext()
-    audio.autoplay = false
-    audio.loop = !!props.node.loop
-    audio.volume = props.node.muted ? 0 : 1
     audio.onPlay(handlePlay)
     audio.onPause(handlePause)
     audio.onEnded(handleEnded)
+    audio.onTimeUpdate(() => {
+      handleTimeUpdate({ detail: { currentTime: audio?.currentTime, duration: audio?.duration } })
+    })
     audio.onError((error) => {
       void handleError({ detail: error })
     })
+    // iOS 会立即将配置同步给原生播放器，空资源时设置播放选项可能触发 MediaError。
     audio.src = source.value
+    audio.autoplay = false
+    audio.loop = !!props.node.loop
+    audio.volume = props.node.muted ? 0 : 1
   } else video = uni.createVideoContext(mediaId, instance?.proxy || undefined)
 })
 onBeforeUnmount(() => {
@@ -84,35 +89,59 @@ onBeforeUnmount(() => {
   video?.pause()
 })
 
-function pause() {
+/** 同步发送指令以保留用户点击上下文；实际播放由平台事件确认。 */
+function play(): boolean {
+  if (disposed || failed.value || (!audio && !video)) return false
+  playbackRequested = true
+  if (audio) audio.play()
+  else video!.play()
+  return true
+}
+function pause(): boolean {
   playbackRequested = false
+  if (disposed || failed.value || (!audio && !video)) return false
   audio?.pause()
   video?.pause()
+  return true
+}
+function seek(seconds: number): boolean {
+  if (disposed || failed.value || (!audio && !video)) return false
+  if (audio) audio.seek(seconds)
+  else video!.seek(seconds)
+  return true
 }
 function toggleAudio() {
   if (playing.value) pause()
-  else {
-    playbackRequested = true
-    audio?.play()
-  }
+  else play()
+}
+function handleTimeUpdate(event: { detail?: { currentTime?: number; duration?: number } }) {
+  if (disposed || failed.value) return
+  const finiteTime = (value?: number) => (typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0)
+  context?.mediaTimeUpdate({
+    id: props.node.mediaId || '',
+    type: props.node.mediaType || 'video',
+    src: source.value,
+    currentTime: finiteTime(event.detail?.currentTime),
+    duration: finiteTime(event.detail?.duration)
+  })
 }
 function notify(event: 'play' | 'pause' | 'ended') {
-  if (!disposed) context?.mediaEvent(mediaId, event, { type: props.node.mediaType || 'video', src: source.value })
+  if (!disposed) context?.mediaEvent(mediaId, event, { id: props.node.mediaId || '', type: props.node.mediaType || 'video', src: source.value })
 }
 function handlePlay() {
-  if (disposed) return
+  if (disposed || failed.value) return
   playbackRequested = true
   playing.value = true
   notify('play')
 }
 function handlePause() {
-  if (disposed) return
+  if (disposed || failed.value) return
   playbackRequested = false
   playing.value = false
   notify('pause')
 }
 function handleEnded() {
-  if (disposed) return
+  if (disposed || failed.value) return
   playbackRequested = false
   playing.value = false
   notify('ended')
@@ -135,7 +164,7 @@ async function handleError(event?: { detail?: { errMsg?: string } }) {
       if (resume) audio.play()
     }
     await nextTick()
-    if (!disposed && video && resume) video.play()
+    if (!disposed && !failed.value && video && resume && playbackRequested) video.play()
   } else fail(event?.detail?.errMsg || 'Media loading failed')
 }
 </script>

@@ -3,7 +3,7 @@ const styleProperties = new Set(
     'color background-color font-size font-weight font-style font-family text-align text-decoration text-indent ' +
     'line-height letter-spacing white-space word-break overflow-wrap vertical-align width height max-width min-width ' +
     'margin margin-top margin-right margin-bottom margin-left padding padding-top padding-right padding-bottom padding-left ' +
-    'border border-width border-style border-color border-radius border-collapse border-spacing list-style-type display'
+    'border border-width border-style border-color border-radius border-collapse border-spacing table-layout list-style-type display'
   ).split(' ')
 )
 
@@ -15,6 +15,7 @@ const enums: Record<string, string[]> = {
   'word-break': ['normal', 'break-all', 'keep-all', 'break-word'],
   'overflow-wrap': ['normal', 'break-word', 'anywhere'],
   'border-collapse': ['collapse', 'separate'],
+  'table-layout': ['auto', 'fixed'],
   'list-style-type': ['none', 'disc', 'circle', 'square', 'decimal', 'lower-alpha', 'upper-alpha', 'lower-roman', 'upper-roman']
 }
 

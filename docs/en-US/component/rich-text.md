@@ -124,7 +124,7 @@ const classStyles = { eyebrow: 'font-size:12px;letter-spacing:3px;color:var(--wo
 </script>
 ```
 
-Precedence: defaults → `tag-style` → `class-styles` → inline HTML styles. Classes use these mappings rather than matching page CSS. Common `ql-align-*` and `ql-indent-1`–`8` formatting classes are supported.
+Precedence: defaults → `tag-style` → `class-styles` → inline HTML styles. Classes use these mappings rather than matching page CSS.
 
 ### Theme and typography
 
@@ -145,11 +145,18 @@ Ordered, unordered, and nested lists are supported. Wide tables scroll horizonta
 
 ```vue
 <wd-rich-text
-  content='<table style="width:560px"><tr><th>Time</th><th colspan="2">Weekend plan</th></tr><tr><td>09:00</td><td>Meet by the lake</td><td>A gentle walk</td></tr></table>'
+  content='<table style="width:560px;table-layout:fixed"><colgroup><col width="20%"><col width="30%"><col width="50%"></colgroup><tr><th>Time</th><th colspan="2">Weekend plan</th></tr><tr><td>09:00</td><td>Meet by the lake</td><td>A gentle walk</td></tr></table>'
 />
 ```
 
-Merged tables containing links or images use equal-width columns. `col` / `colgroup` width definitions are not supported. Verify merging and scrolling on your target platforms.
+Set pixel or percentage column widths with the `width` attribute or inline style on `colgroup` / `col`. Long words in tables wrap by default. To keep text on one line, use `white-space:nowrap` with a wide, horizontally scrolling table.
+
+::: details Column width rules
+
+Static tables use native table layout; use `table-layout:fixed` for fixed column widths. Tables containing links, images, or anchors use a grid when column widths or merged cells require it. Column definitions take precedence, followed by the first single-column cell with an explicit width in each column. Remaining columns share the available space. A spanning cell's total width does not determine individual column proportions; declare `col` widths instead.
+
+Grid column widths accept numbers (px), `px`, and `%`, but do not resolve `em`, `calc()`, or CSS variables. Percentages refer to the table width; excessive widths overflow horizontally. `col` / `colgroup` support `span` from 1 to 99; extra column definitions do not expand the interactive grid. Native and grid layouts may differ slightly; verify on your target platforms.
+:::
 
 ### Contents and anchors
 
@@ -176,9 +183,11 @@ async function jump(id: string) {
 </script>
 ```
 
-Headings use their HTML `id` when available, otherwise a generated identifier. The first occurrence retains a duplicate ID; later headings receive separate identifiers. Refresh the directory after content changes. Empty headings remain in the result and can be filtered by `text`. Ordinary elements can also be targets; `source`, `thead`, `tbody`, `tfoot`, and `tr` are excluded. Put IDs on the table, cells, or inner headings instead.
+Headings use their HTML `id` when available, otherwise a generated identifier. The first occurrence retains a duplicate ID; later headings receive separate identifiers. Refresh the directory after content changes. Empty headings remain in the result and can be filtered by `text`. Ordinary elements can also be targets; `source`, `col`, `colgroup`, `thead`, `tbody`, `tfoot`, and `tr` are excluded. Put IDs on the table, cells, or inner headings instead.
 
 The component does not automatically follow `href="#intro"`. Extract the ID in `link-click` and call the navigation method; decode URL-encoded fragments in application code. Hidden, unrendered, removed targets and queries invalidated by content updates reject their Promise.
+
+`scrollToAnchor()` remeasures after the animation and corrects the position at most once to account for images loading during scrolling. A newer navigation request, content replacement, or unmount interrupts and rejects the old request. It does not keep following later layout changes; reserve image dimensions or navigate again after images load when needed.
 
 ::: details Navigation inside a scroll-view
 `scrollToAnchor()` scrolls the page only. For a container, use `getAnchorRect(id)` and query the container's `top` and `scrollTop` with `uni.createSelectorQuery()`. Update its `scroll-top` using:
@@ -192,27 +201,63 @@ Coordinates use pixels in the uni-app content viewport, excluding the H5 navigat
 
 ## Content Formats
 
+### Editor content
+
+Pass exported HTML to `content`: use `getSemanticHTML()` in Quill 2, `getHtml()` in wangEditor, or `getContent()` in TinyMCE. Editor CSS is not required.
+
+```vue
+<wd-rich-text :content="htmlFromEditor" @link-click="handleLink" />
+```
+
+Standard paragraphs, empty paragraphs, nested lists, captions, and code whitespace are supported. Built-in Quill mappings include `ql-align-center/right/justify`, `ql-indent-1`–`8` (3em per level), `ql-size-small/large/huge`, and `ql-font-serif/monospace`. Task lists display their checked state without editing it. Map other custom classes through `class-styles`.
+
+Regression fixtures use official export APIs from Quill 2.0.3, wangEditor 5.1.23, and TinyMCE 7.9.1. Editor DOM, Delta/JSON, custom plugins, and complete editor themes are outside this scope. Code blocks preserve text and indentation without automatic syntax highlighting.
+
 ### Audio and video
 
 Use `video` and `audio` in HTML. Direct `source` children can provide multiple sources. Media does not autoplay. Video uses native controls; audio provides play and pause buttons.
 
+Assign a unique `id` to control playback, pause, or seek. Enable `enable-anchor` to also scroll to the media.
+
 ```vue
 <template>
-  <wd-rich-text ref="richText" :content="content" />
+  <wd-button @click="locateVideo">Locate video</wd-button>
+  <wd-button @click="richText?.playMedia('trip')">Play video</wd-button>
+  <wd-button @click="richText?.pauseMedia('trip')">Pause video</wd-button>
+  <wd-button @click="richText?.seekMedia('trip', 5)">Seek to 5 seconds</wd-button>
+  <wd-rich-text ref="richText" :content="content" enable-anchor @media-timeupdate="handleProgress" />
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
 import { onHide } from '@dcloudio/uni-app'
-import type { RichTextExpose } from '@/uni_modules/wot-ui/components/wd-rich-text/types'
+import type { RichTextExpose, RichTextMediaTimeUpdate } from '@/uni_modules/wot-ui/components/wd-rich-text/types'
 
 const richText = ref<RichTextExpose>()
-const content = '<video src="https://example.com/trip.mp4"></video><audio title="Reading time" src="https://example.com/music.mp3"></audio>'
+const content = '<video id="trip" src="https://example.com/trip.mp4"></video><audio id="music" title="Reading time" src="https://example.com/music.mp3"></audio>'
+async function locateVideo() {
+  try {
+    await richText.value?.scrollToAnchor('trip', { offset: 16 })
+  } catch {
+    uni.showToast({ title: 'Media unavailable', icon: 'none' })
+  }
+}
+function handleProgress({ id, currentTime, duration }: RichTextMediaTimeUpdate) {
+  console.log(id, currentTime, duration)
+}
 onHide(() => richText.value?.pauseMedia())
 </script>
 ```
 
-Playing media pauses other media in the same component. Call `pauseMedia()` when the page hides. Use an HTTP(S) image URL for the video poster. Replace the example URLs and verify format support and network access on your target platforms.
+Locating or seeking does not start playback. Call play directly from a user interaction; platform events such as `media-play` confirm actual playback. Playing media pauses other media in the same component. Use `pauseMedia()` when the page hides to pause all media.
+
+The three control methods return a `boolean`: `true` means a command was sent, not that loading, playback, or seeking completed. An unmounted or failed target, an empty/missing/duplicate ID, or a non-finite or negative seek position returns `false`. Call after the component's `load` event. IDs accept up to 128 UTF-16 code units without whitespace or control characters; keep them unique throughout the content.
+
+`media-play`, `media-pause`, `media-ended`, and `media-timeupdate` include the media's HTML `id` and current source `src`; `id` is an empty string when no valid ID was provided. Progress is in seconds with platform-defined frequency; unknown duration is 0. The platform handles seeking beyond the duration or before the resource is ready.
+
+Use an HTTP(S) image URL for video posters. Replace the example URLs and verify format support and network access on your target platforms.
+
+After all sources fail, the component displays a fallback and emits `error`; it does not retry indefinitely. Update `content` after correcting the resource URL. To retry the same URL, change the component's `key` to remount it. Remounting resets the playback progress of all media in that component and does not start playback automatically. The demo provides a reload action after a media failure.
 
 ### Long articles
 
@@ -260,13 +305,14 @@ const expanded = ref(false)
 | Event       | Description                                                                                       | Parameters                                                                                                    |
 | ----------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | image-load  | An original content image loaded, once per node; excludes placeholders                            | `{ src: string, index: number, width: number, height: number }`; intrinsic pixel dimensions                   |
-| load        | Successful parsing and node updates, including an empty filtered result; does not wait for images | `{ imageCount: number }`                                                                                      |
+| load        | Successful parsing and node updates, including an empty filtered result; does not wait for image or media resources | `{ imageCount: number }`                                                                                      |
 | error       | Parse or resource failure                                                                         | parse: `{ source, message, code? }`; image: `{ source, src, index }`; audio/video: `{ source, src, message }` |
 | link-click  | Valid text or image link clicked                                                                  | `{ href: string }`                                                                                            |
 | image-click | Ordinary image clicked; failed images do not emit this event                                      | `{ src: string, index: number }`                                                                              |
-| media-play  | Playback starts                                                                                   | `{ type: 'video' \| 'audio', src: string }`                                                                   |
+| media-play  | Playback starts                                                                                   | `{ id: string, type: 'video' \| 'audio', src: string }`                                                                   |
 | media-pause | Playback pauses                                                                                   | Same as media-play                                                                                            |
 | media-ended | Playback ends                                                                                     | Same as media-play                                                                                            |
+| media-timeupdate | Playback progress update | `{ id, type, src, currentTime: number, duration: number }`, in seconds |
 
 Image indices are zero-based occurrence indices, including linked images and images without valid URLs.
 
@@ -278,7 +324,9 @@ Image indices are zero-based occurrence indices, including linked images and ima
 | getAnchorRect  | Query the target's position in the content viewport                                             | `id: string`                                                                            | `Promise<{ top, left, width, height }>`    |
 | scrollToAnchor | Scroll the page to a target; offset reserves space above it and duration controls the animation | `id: string, options?: { offset?: number, duration?: number }`; defaults to 0px / 300ms | `Promise<void>`                            |
 | getText        | Filtered plain text with block breaks, line breaks and image alt text                           | -                                                                                       | `string`                                   |
-| pauseMedia     | Pause all media in this instance                                                                | -                                                                                       | `void`                                     |
+| playMedia | Play the specified media | `id: string` | `boolean` |
+| pauseMedia | Pause the specified media, or all media without an ID; true if at least one command was sent | `id?: string` | `boolean` |
+| seekMedia | Seek without starting playback | `id: string, seconds: number` | `boolean` |
 
 ## Slots
 
@@ -294,5 +342,7 @@ Image indices are zero-based occurrence indices, including linked images and ima
 | --wot-rich-text-font-size         | Text size                      |
 | --wot-rich-text-line-height       | Line height, defaults to `1.7` |
 | --wot-rich-text-link-color        | Link color                     |
+| --wot-rich-text-video-height      | Video height when no content height is specified; defaults to `225px` |
+| --wot-rich-text-image-state-min-height | Minimum height while an image is loading or has failed; defaults to the base size token `--wot-n-48` (`48px`) |
 | --wot-rich-text-image-state-color | Image status text color        |
 | --wot-rich-text-image-state-bg    | Image status background        |

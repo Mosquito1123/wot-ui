@@ -35,6 +35,8 @@ import {
   type RichTextAnchorOptions,
   type RichTextLinkClick,
   type RichTextMediaEvent,
+  type RichTextMediaController,
+  type RichTextMediaTimeUpdate,
   type RichTextLoad
 } from './types'
 
@@ -48,6 +50,7 @@ const emit = defineEmits<{
   'media-play': [event: RichTextMediaEvent]
   'media-pause': [event: RichTextMediaEvent]
   'media-ended': [event: RichTextMediaEvent]
+  'media-timeupdate': [event: RichTextMediaTimeUpdate]
 }>()
 const revision = ref(0)
 const compiled = shallowRef<ReturnType<typeof compileRichText>>({ nodes: [], images: [], previewImages: [], headings: [] })
@@ -64,6 +67,8 @@ onBeforeUnmount(() => {
   disposed = true
   resolveMounted()
   anchors.clear()
+  media.clear()
+  cancelScrollWait?.()
 })
 
 /** 返回当前标题目录的副本；未启用锚点时为空。 */
@@ -81,22 +86,66 @@ async function getAnchorRect(id: string): Promise<RichTextAnchorRect> {
   if (disposed || revision.value !== currentRevision) throw new Error('Content changed while locating anchor')
   return rect
 }
-/** 滚动页面至指定锚点；scroll-view 请通过 getAnchorRect 自行换算位置。 */
+let scrollOperation = 0
+let cancelScrollWait: (() => void) | undefined
+/** 滚动结束后再测量一次，修正动画期间图片等内容引起的位置变化。 */
 async function scrollToAnchor(id: string, options: RichTextAnchorOptions = {}): Promise<void> {
   const { offset = 0, duration = 300 } = options
   if (!Number.isFinite(offset) || !Number.isFinite(duration) || duration < 0) throw new Error('Invalid anchor scroll options')
-  await nextTick()
+  const operation = ++scrollOperation
+  cancelScrollWait?.()
   const currentRevision = revision.value
+  const assertCurrent = () => {
+    if (disposed || currentRevision !== revision.value || operation !== scrollOperation) throw new Error('Anchor scroll was interrupted')
+  }
+  const scroll = (scrollTop: number, animation: number) =>
+    new Promise<void>((resolve, reject) => {
+      uni.pageScrollTo({ scrollTop: Math.max(0, scrollTop), duration: animation, success: () => resolve(), fail: reject })
+    })
   const [rect, scrollTop] = await Promise.all([getAnchorRect(id), getPageScrollTop()])
-  if (disposed || currentRevision !== revision.value) throw new Error('Content changed while locating anchor')
-  await new Promise<void>((resolve, reject) => {
-    uni.pageScrollTo({ scrollTop: Math.max(0, scrollTop + rect.top - offset), duration, success: () => resolve(), fail: reject })
-  })
+  assertCurrent()
+  await scroll(scrollTop + rect.top - offset, duration)
+  assertCurrent()
+  // success 只表示平台接收滚动指令；动画完成后再作一次校正。
+  if (duration) {
+    await new Promise<void>((resolve) => {
+      const done = () => {
+        clearTimeout(timer)
+        if (cancelScrollWait === done) cancelScrollWait = undefined
+        resolve()
+      }
+      const timer = setTimeout(done, duration)
+      cancelScrollWait = done
+    })
+  }
+  assertCurrent()
+  const [latest, latestScrollTop] = await Promise.all([getAnchorRect(id), getPageScrollTop()])
+  assertCurrent()
+  if (Math.abs(latest.top - offset) > 1) await scroll(latestScrollTop + latest.top - offset, 0)
+  assertCurrent()
 }
-const media = new Map<string, () => void>()
-/** 暂停当前组件内的全部音视频，供页面隐藏时调用。 */
-function pauseMedia() {
-  media.forEach((pause) => pause())
+const media = new Map<string, RichTextMediaController>()
+/** 重复或缺失 ID 不选择任意一个媒体，避免控制错误的播放器。 */
+function findMedia(id: string) {
+  if (disposed || !id) return
+  const matches = [...media.values()].filter((controller) => controller.id === id)
+  return matches.length === 1 ? matches[0] : undefined
+}
+function playMedia(id: string): boolean {
+  return findMedia(id)?.play() ?? false
+}
+/** 暂停当前组件内的音视频，供页面隐藏时调用。 */
+function pauseMedia(id?: string): boolean {
+  if (id !== undefined) return findMedia(id)?.pause() ?? false
+  let accepted = false
+  media.forEach((controller) => {
+    if (controller.pause()) accepted = true
+  })
+  return accepted
+}
+function seekMedia(id: string, seconds: number): boolean {
+  if (!Number.isFinite(seconds) || seconds < 0) return false
+  return findMedia(id)?.seek(seconds) ?? false
 }
 
 /** 按映射内容监听，避免父组件重建等值内联对象时重置图片和媒体。 */
@@ -120,6 +169,8 @@ watch(
   async ([content]) => {
     const currentRevision = ++revision.value
     anchors.clear()
+    media.clear()
+    cancelScrollWait?.()
     let error: RichTextError | undefined
     try {
       const nodes = parseHtml(content, props)
@@ -167,24 +218,25 @@ provide(richTextContextKey, {
   },
   linkClick: (event) => emit('link-click', event),
   imageError: (event) => emit('error', { source: 'image', ...event }),
-  registerMedia: (id, pause) => {
-    media.set(id, pause)
+  registerMedia: (id, controller) => {
+    media.set(id, controller)
     return () => {
-      media.delete(id)
+      if (media.get(id) === controller) media.delete(id)
     }
   },
   mediaEvent: (id, event, detail) => {
     if (event === 'play') {
-      media.forEach((pause, otherId) => {
-        if (otherId !== id) pause()
+      media.forEach((controller, otherId) => {
+        if (otherId !== id) controller.pause()
       })
       emit('media-play', detail)
     } else if (event === 'pause') emit('media-pause', detail)
     else emit('media-ended', detail)
   },
+  mediaTimeUpdate: (event) => emit('media-timeupdate', event),
   mediaError: (event) => emit('error', event)
 })
-defineExpose<RichTextExpose>({ getText: () => plainText, pauseMedia, getHeadings, getAnchorRect, scrollToAnchor })
+defineExpose<RichTextExpose>({ getText: () => plainText, playMedia, pauseMedia, seekMedia, getHeadings, getAnchorRect, scrollToAnchor })
 </script>
 <style lang="scss">
 @use './index.scss';

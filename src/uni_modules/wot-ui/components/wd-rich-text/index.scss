@@ -3,6 +3,8 @@
 $rich-text-color: var(--wot-rich-text-color, $text-main) !default;
 $rich-text-font-size: var(--wot-rich-text-font-size, $typography-body-size-main) !default;
 $rich-text-line-height: var(--wot-rich-text-line-height, 1.7) !default;
+$rich-text-video-height: var(--wot-rich-text-video-height, 225px) !default;
+$rich-text-image-state-min-height: var(--wot-rich-text-image-state-min-height, $n-48) !default;
 $rich-text-image-state-color: var(--wot-rich-text-image-state-color, $text-secondary) !default;
 $rich-text-image-state-bg: var(--wot-rich-text-image-state-bg, $filled-content) !default;
 
@@ -22,7 +24,7 @@ $rich-text-image-state-bg: var(--wot-rich-text-image-state-bg, $filled-content) 
   &__video {
     display: block;
     width: 100%;
-    height: 225px;
+    height: $rich-text-video-height;
     max-width: 100%;
   }
   &__audio-control {
@@ -61,7 +63,7 @@ $rich-text-image-state-bg: var(--wot-rich-text-image-state-bg, $filled-content) 
     vertical-align: middle;
     &.is-loading,
     &.is-error {
-      min-height: 48px;
+      min-height: $rich-text-image-state-min-height;
     }
   }
   &__image {
@@ -84,5 +86,6 @@ $rich-text-image-state-bg: var(--wot-rich-text-image-state-bg, $filled-content) 
     background: $rich-text-image-state-bg;
     color: $rich-text-image-state-color;
     font-size: $rich-text-font-size;
+    line-height: $rich-text-line-height;
   }
 }

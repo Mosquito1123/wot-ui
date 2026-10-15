@@ -25,6 +25,8 @@ export type RichTextTag =
   | 'ol'
   | 'li'
   | 'table'
+  | 'colgroup'
+  | 'col'
   | 'thead'
   | 'tbody'
   | 'tfoot'
@@ -84,6 +86,8 @@ export interface RichTextRenderNode {
   children: RichTextRenderNode[]
   nativeNodes?: NativeRichTextNode[]
   tableStyle?: string
+  /** HTML 中的媒体 ID，与内部渲染 ID 分离。 */
+  mediaId?: string
   mediaType?: 'video' | 'audio'
   sources?: string[]
   poster?: string
@@ -123,8 +127,23 @@ export interface RichTextLinkClick {
   href: string
 }
 export interface RichTextMediaEvent {
+  /** HTML 中的媒体 ID；未设置时为空字符串。 */
+  id: string
   type: 'video' | 'audio'
   src: string
+}
+
+/** 平台实际上报的播放进度，单位秒。未知或无效时间归零。 */
+export interface RichTextMediaTimeUpdate extends RichTextMediaEvent {
+  currentTime: number
+  duration: number
+}
+/** 内部媒体控制器；返回值仅表示是否已向平台发出指令。 */
+export interface RichTextMediaController {
+  id: string
+  play: () => boolean
+  pause: () => boolean
+  seek: (seconds: number) => boolean
 }
 
 /** 内容解析或资源加载错误。 */
@@ -139,7 +158,12 @@ export interface RichTextLoad {
 /** 组件暴露方法。 */
 export interface RichTextExpose {
   getText: () => string
-  pauseMedia: () => void
+  /** 同步发送播放指令，建议在用户点击事件内调用。 */
+  playMedia: (id: string) => boolean
+  /** 不传 ID 时暂停全部；传 ID 时只暂停目标。 */
+  pauseMedia: (id?: string) => boolean
+  /** 跳转到指定秒数，不主动开始播放。 */
+  seekMedia: (id: string, seconds: number) => boolean
   getHeadings: () => RichTextHeading[]
   getAnchorRect: (id: string) => Promise<RichTextAnchorRect>
   scrollToAnchor: (id: string, options?: RichTextAnchorOptions) => Promise<void>
@@ -154,8 +178,9 @@ export interface RichTextRenderContext {
   imageError: (event: RichTextImageClick) => void
   imageClick: (event: RichTextImageClick) => void
   linkClick: (event: RichTextLinkClick) => void
-  registerMedia: (id: string, pause: () => void) => () => void
+  registerMedia: (id: string, controller: RichTextMediaController) => () => void
   mediaEvent: (id: string, event: 'play' | 'pause' | 'ended', detail: RichTextMediaEvent) => void
+  mediaTimeUpdate: (event: RichTextMediaTimeUpdate) => void
   mediaError: (event: Extract<RichTextError, { source: 'video' | 'audio' }>) => void
 }
 export const richTextContextKey: InjectionKey<RichTextRenderContext> = Symbol('wd-rich-text')

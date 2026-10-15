@@ -8,6 +8,55 @@ async function openRegression(page: Page, selector: string) {
   await expect(page.locator(selector).first()).toBeVisible()
 }
 
+test('明确列宽在原生与交互合并表格中保持比例，长单词换行且不撑宽页面', async ({ page }, testInfo) => {
+  await openRegression(page, '.page-rich-text__column-static')
+  const native = page.locator('.page-rich-text__column-static table')
+  const grid = page.locator('.page-rich-text__column-grid .wd-rich-text__table')
+  for (const [table, selector] of [
+    [native, 'td'],
+    [grid, '.wd-rich-text__td']
+  ] as const) {
+    await table.scrollIntoViewIfNeeded()
+    const cells = await table.locator(selector).evaluateAll((elements) =>
+      elements.map((element) => {
+        const rect = element.getBoundingClientRect()
+        return { width: rect.width, height: rect.height, client: element.clientWidth, scroll: element.scrollWidth }
+      })
+    )
+    expect(cells).toHaveLength(3)
+    expect(Math.abs(cells[0].width - 100)).toBeLessThan(2)
+    expect(Math.abs(cells[1].width - 300)).toBeLessThan(2)
+    expect(cells[2].height).toBeGreaterThan(45)
+    expect(cells[2].scroll - cells[2].client).toBeLessThanOrEqual(1)
+  }
+  const scroll = page.locator('.page-rich-text__column-grid .wd-rich-text__scroll')
+  await scroll.evaluate((element) => {
+    element.scrollLeft = 100
+  })
+  await grid.locator('.wd-rich-text__link').click()
+  await expect(page.locator('.page-rich-text__events')).toContainText('/journal/gear')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1)
+  await testInfo.attach('column-widths', { body: await page.locator('.page-rich-text__column-grid').screenshot(), contentType: 'image/png' })
+})
+
+test('真实编辑器导出保留空段落、字号、任务状态、图注和链接', async ({ page }) => {
+  await openRegression(page, '.page-rich-text__export-quill')
+  const quill = page.locator('.page-rich-text__export-quill')
+  const heading = quill.locator('span').filter({ hasText: /^山野来信$/ })
+  const baseSize = await quill.locator('.wd-rich-text').evaluate((element) => parseFloat(getComputedStyle(element).fontSize))
+  await expect(heading).toHaveCSS('font-size', `${baseSize * 1.5}px`)
+  expect((await quill.locator('p').nth(1).boundingBox())!.height).toBeGreaterThanOrEqual(baseSize)
+  await expect(quill).toContainText('☑')
+  await expect(quill.locator('.wd-rich-text__marker')).toHaveText('☐\u00a0')
+  await expect(quill).toContainText('const trip = "weekend";')
+  const wang = page.locator('.page-rich-text__export-wangEditor')
+  await expect(wang.locator('code')).toHaveText('const trip = "weekend";\n  go();', { useInnerText: false })
+  const tiny = page.locator('.page-rich-text__export-tinyMCE')
+  await expect(tiny).toContainText('01 / 在路上')
+  await tiny.locator('.wd-rich-text__link').click()
+  await expect(page.locator('.page-rich-text__events')).toContainText('journal/gear')
+})
+
 test('静态块合并、行内链接不额外换行、事件只触发一次', async ({ page }, testInfo) => {
   await openRegression(page, '.page-rich-text__inline')
   await expect(page.locator('.page-rich-text__static .wd-rich-text__static')).toHaveCount(1)
@@ -23,8 +72,12 @@ test('静态块合并、行内链接不额外换行、事件只触发一次', as
   expect(rects[1].left).toBeGreaterThanOrEqual(rects[0].right - 1)
   expect(rects[2].left).toBeGreaterThanOrEqual(rects[1].right - 1)
   const wrappedLink = page.locator('.page-rich-text__inline .wd-rich-text__p').nth(1).locator('.wd-rich-text__link')
-  expect(await wrappedLink.evaluate((el) => el.getClientRects().length)).toBeGreaterThan(1)
+  // 换行验证需要窄视口；桌面宽屏允许链接完整显示在一行。
+  const viewport = page.viewportSize()!
+  await page.setViewportSize({ ...viewport, width: Math.min(viewport.width, 390) })
+  await expect.poll(() => wrappedLink.evaluate((el) => el.getClientRects().length)).toBeGreaterThan(1)
   await testInfo.attach('inline-layout', { body: await page.locator('.page-rich-text__inline').screenshot(), contentType: 'image/png' })
+  await page.setViewportSize(viewport)
   await paragraph.locator('.wd-rich-text__link').click()
   await expect(page.locator('.page-rich-text__events')).toContainText('链接 1；图片 0；/pages/detail')
   expect(page.url()).toContain('/subPages/richText/Index')
