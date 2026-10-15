@@ -26,6 +26,7 @@ export function layoutTable(table: ElementNode) {
   const groupStyles = new WeakMap<ElementNode, string>()
   const captions: ElementNode[] = []
   let directRows: ElementNode[] = []
+  /** 将连续的直属行收为独立行组，防止 rowspan 越过后续显式行组。 */
   const flush = () => {
     if (directRows.length) groups.push(directRows)
     directRows = []
@@ -94,6 +95,7 @@ export function layoutTable(table: ElementNode) {
   const widths: (string | undefined)[] = Array.from({ length: columns })
   let columnIndex = 0
   let declaredColumns = 0
+  /** 在列数预算内展开 col/span，优先使用自身宽度，缺省时继承列组宽度。 */
   const addColumns = (node: ElementNode, inheritedWidth?: string) => {
     const span = Number(node.attrs?.span || 1)
     declaredColumns += span

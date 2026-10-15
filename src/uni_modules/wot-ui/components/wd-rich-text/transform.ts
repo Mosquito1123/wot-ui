@@ -111,6 +111,7 @@ export function compileRichText(input: RichTextInputNode[], enableAnchor = false
   if (enableAnchor) {
     const reserved = new Set<string>()
     const used = new Set<string>()
+    /** 预留显式 ID，防止自动生成的标题锚点占用后续节点的 ID。 */
     const collect = (nodes: RichTextInputNode[]) =>
       nodes.forEach((node) => {
         if (node.type !== 'element') return
@@ -119,6 +120,7 @@ export function compileRichText(input: RichTextInputNode[], enableAnchor = false
       })
     collect(input)
     let headingIndex = 0
+    /** 建立标题目录与节点锚点映射，重复显式 ID 仅保留首次出现的位置。 */
     const index = (nodes: RichTextInputNode[]) =>
       nodes.forEach((node) => {
         if (node.type !== 'element' || node.name === 'source') return
@@ -142,6 +144,7 @@ export function compileRichText(input: RichTextInputNode[], enableAnchor = false
   }
   let sequence = 0
   const nextId = () => `rt-${sequence++}`
+  /** 合并默认排版、HTML 尺寸与内联样式，保证内联声明最后生效。 */
   const styleOf = (node: Extract<RichTextInputNode, { type: 'element' }>) => {
     const dimensions = ['width', 'height']
       .map((key) => {
@@ -161,6 +164,7 @@ export function compileRichText(input: RichTextInputNode[], enableAnchor = false
     return (defaultStyles[node.name] || '') + emptyParagraph + listStyle + dimensions + (node.attrs?.style || '')
   }
 
+  /** 自底向上标记需要展开的子树，使交互节点及其祖先进入组件渲染路径。 */
   function mark(node: RichTextInputNode): boolean {
     // 所有子节点都须访问，不能用 some 的短路跳过后续子树。
     const childFlags = node.type === 'element' ? (node.children || []).map(mark) : []
@@ -178,6 +182,7 @@ export function compileRichText(input: RichTextInputNode[], enableAnchor = false
   }
   input.forEach(mark)
 
+  /** 将静态子树转换为原生 rich-text 节点，兼容基础标签并保持实体的字面值。 */
   function toNative(node: RichTextInputNode): NativeRichTextNode {
     // 原生 rich-text 会再次解码实体；转义 & 保持与 text 渲染路径相同的字面文本。
     if (node.type === 'text') return { type: 'text', text: node.text.replace(/&/g, '&amp;') }
@@ -198,9 +203,11 @@ export function compileRichText(input: RichTextInputNode[], enableAnchor = false
     return { name, attrs, children }
   }
 
+  /** 按上下文合并静态块并展开交互节点，同时收集图片、媒体和表格渲染数据。 */
   function visit(nodes: RichTextInputNode[], allowBlocks: boolean): RichTextRenderNode[] {
     const result: RichTextRenderNode[] = []
     let batch: NativeRichTextNode[] = []
+    /** 输出连续静态节点的批次，避免跨越交互节点合并而改变原始顺序。 */
     function flush() {
       if (!batch.length) return
       result.push({ id: nextId(), kind: 'static', name: 'div', style: '', children: [], nativeNodes: batch })

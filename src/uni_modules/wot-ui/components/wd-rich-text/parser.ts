@@ -110,12 +110,14 @@ export function parseHtml(content: string, options: RichTextParseOptions = {}): 
   let index = 0
   let count = 0
   let outputSize = 0
+  /** 将节点加入当前父节点，并在写入前检查节点数与输出体积预算。 */
   function append(node: RichTextInputNode) {
     if (++count > richTextLimits.nodes) throw new RichTextParseError('NODE_LIMIT', 'HTML content exceeds 10000 nodes')
     outputSize += JSON.stringify(node).length
     if (outputSize > richTextLimits.output) throw new RichTextParseError('OUTPUT_LIMIT', 'HTML node data exceeds 2000000 characters')
     stack[stack.length - 1].children.push(node)
   }
+  /** 解码文本并按继承的 white-space 规则折叠空白，保留预格式化内容。 */
   function text(value: string) {
     if (!value) return
     const whiteSpace = stack[stack.length - 1].whiteSpace
@@ -124,6 +126,7 @@ export function parseHtml(content: string, options: RichTextParseOptions = {}): 
     else if (whiteSpace === 'pre-line') decoded = decoded.replace(/[\t\f ]+/g, ' ')
     append({ type: 'text', text: decoded })
   }
+  /** 响应显式结束标签，关闭最近匹配的元素及其未闭合子元素。 */
   function close(name: string) {
     for (let i = stack.length - 1; i > 0; i--) {
       if (stack[i].name === name) {
@@ -132,6 +135,7 @@ export function parseHtml(content: string, options: RichTextParseOptions = {}): 
       }
     }
   }
+  /** 补全可省略的结束标签；遇到容器边界即停止，避免关闭外层列表或表格。 */
   function closeWithin(names: string[], boundaries: string[]) {
     for (let i = stack.length - 1; i > 0; i--) {
       if (names.includes(stack[i].name)) {
@@ -231,6 +235,7 @@ export function parseHtml(content: string, options: RichTextParseOptions = {}): 
 
 /** 提取可读文本，保留段落、换行及图片替代文字。 */
 export function getPlainText(nodes: RichTextInputNode[]): string {
+  /** 递归提取节点文字，用换行和制表符保留段落及表格单元格边界。 */
   function visit(node: RichTextInputNode): string {
     if (node.type === 'text') return node.text
     if (node.name === 'br') return '\n'
