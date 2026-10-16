@@ -267,24 +267,36 @@ export function compileRichText(input: RichTextInputNode[], enableAnchor = false
         const layout = layoutTable(node)
         if (!(node.children || []).some((child) => interactive.get(child))) base.nativeNodes = [toNative(node)]
         else {
-          if (layout.merged || layout.widths.some((width) => width !== undefined)) {
-            const tracks = layout.widths.map((width) => width ?? 'minmax(0,1fr)').join(' ')
-            const display = getStyleValue(base.style, 'display') === 'none' ? 'none' : 'grid'
-            base.tableStyle = base.style + `;display:${display};grid-template-columns:${tracks};`
-            base.children = layout.captions.map((caption, index) => {
-              const rendered = visit([caption], false)[0]
-              rendered.style += `;display:block;grid-column:1 / -1;grid-row:${index + 1};`
-              return rendered
-            })
-            for (const cell of layout.cells) {
-              const rendered = visit([cell.node], false)[0]
-              rendered.style =
-                cell.inheritedStyle +
-                rendered.style +
-                `;display:block;width:auto;min-width:0;grid-row:${cell.row} / span ${cell.rowSpan};grid-column:${cell.column} / span ${cell.colSpan};`
-              base.children.push(rendered)
+          // 交互表格统一走网格：静态单元格交给原生 rich-text，避免为纯文本格子创建递归组件。
+          const tracks = layout.widths.map((width) => width ?? 'minmax(0,1fr)').join(' ')
+          const display = getStyleValue(base.style, 'display') === 'none' ? 'none' : 'grid'
+          base.tableStyle = base.style + `;display:${display};grid-template-columns:${tracks};`
+          /** 无交互的表头／单元格折叠为带网格定位的静态节点。 */
+          const staticCell = (target: Extract<RichTextInputNode, { type: 'element' }>, style: string): RichTextRenderNode => ({
+            id: nextId(),
+            kind: 'static',
+            name: target.name,
+            style,
+            children: [],
+            nativeNodes: (target.children || []).map(toNative)
+          })
+          base.children = layout.captions.map((caption, index) => {
+            const placement = `;display:block;grid-column:1 / -1;grid-row:${index + 1};`
+            if (!interactive.get(caption)) return staticCell(caption, styleOf(caption) + placement)
+            const rendered = visit([caption], false)[0]
+            rendered.style += placement
+            return rendered
+          })
+          for (const cell of layout.cells) {
+            const placement = `;display:block;width:auto;min-width:0;grid-row:${cell.row} / span ${cell.rowSpan};grid-column:${cell.column} / span ${cell.colSpan};`
+            if (!interactive.get(cell.node)) {
+              base.children.push(staticCell(cell.node, cell.inheritedStyle + styleOf(cell.node) + placement))
+              continue
             }
-          } else base.children = visit(node.children || [], false)
+            const rendered = visit([cell.node], false)[0]
+            rendered.style = cell.inheritedStyle + rendered.style + placement
+            base.children.push(rendered)
+          }
         }
       } else {
         base.kind = node.name === 'a' ? 'link' : 'element'

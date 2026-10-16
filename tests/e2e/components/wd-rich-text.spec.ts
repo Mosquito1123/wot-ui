@@ -150,7 +150,8 @@ test('有序列表起始编号、样式映射和交互合并表格布局', async
   const table = page.locator('.page-rich-text__merged-table .wd-rich-text__table')
   await expect(table).toHaveCSS('display', 'grid')
   await table.scrollIntoViewIfNeeded()
-  const cells = await table.locator(':scope > .wd-rich-text__element').evaluateAll((elements) =>
+  // 静态单元格为带定位的 view，交互单元格仍为 element 包装。
+  const cells = await table.locator(':scope > .wd-rich-text__static, :scope > .wd-rich-text__element').evaluateAll((elements) =>
     elements.map((element) => {
       const r = element.getBoundingClientRect()
       return { x: r.x, y: r.y, width: r.width, height: r.height }

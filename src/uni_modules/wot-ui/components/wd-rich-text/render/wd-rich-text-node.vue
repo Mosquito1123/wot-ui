@@ -20,6 +20,10 @@
     <view v-else class="wd-rich-text__table" :style="node.tableStyle || node.style">
       <template v-for="child in node.children" :key="child.id">
         <text v-if="child.kind === 'text'" class="wd-rich-text__text" :selectable="context?.selectable()">{{ child.text }}</text>
+        <!-- 静态单元格用 view 承接网格定位，内部原生 rich-text 不再包递归组件。 -->
+        <view v-else-if="child.kind === 'static'" :class="['wd-rich-text__static', `wd-rich-text__${child.name}`]" :style="child.style">
+          <rich-text :nodes="child.nativeNodes" :selectable="context?.selectable()" :user-select="context?.selectable()" />
+        </view>
         <wd-rich-text-node v-else :node="child" :link-href="linkHref" />
       </template>
     </view>

@@ -12,7 +12,8 @@ test('长内容首次挂载与同等规模更新基线', async ({ page }, testIn
   // 时间只记录，不设受宿主负载影响的 CI 阈值；静态长文必须保持一次合并。
   expect(report.results[0].renderers).toBe(1)
   expect(report.results[1].renderers).toBeLessThanOrEqual(240)
-  expect(report.results[2].renderers).toBeLessThanOrEqual(1250)
+  // 交互表格的静态单元格不再创建递归组件，仅保留含链接的单元格树。
+  expect(report.results[2].renderers).toBeLessThanOrEqual(300)
   expect(report.results[3].renderers).toBeLessThanOrEqual(750)
   expect(
     report.results.every(

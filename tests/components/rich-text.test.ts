@@ -211,6 +211,8 @@ describe('RichText 渲染决策', () => {
     expect(compileRichText(parseHtml(staticTableContent)).nodes[0].nativeNodes?.[0]).toHaveProperty('name', 'table')
     const interactive = compileRichText(parseHtml(tableContent)).nodes[0]
     expect(interactive.nativeNodes).toBeUndefined()
+    expect(interactive.tableStyle).toContain('grid-template-columns:')
+    expect(flatten([interactive]).filter((node) => node.kind === 'static').length).toBeGreaterThan(0)
     expect(flatten([interactive]).filter((node) => node.kind === 'image')).toHaveLength(1)
     expect(flatten([interactive]).filter((node) => node.kind === 'link')).toHaveLength(1)
   })
@@ -346,10 +348,14 @@ describe('RichText 正式 API', () => {
   const global = { stubs: { 'rich-text': true } }
   test('交互表格控制递归实例数量，文字选择切换、实体及链接更新正常', async () => {
     const content = '<table>' + '<tr><td>文字 &amp; 实体</td><td><a href="/detail">查看<strong>详情</strong></a></td></tr>'.repeat(40) + '</table>'
+    const compiled = compileRichText(parseHtml(content))
+    // 静态单元格折叠为 nativeNodes；仅表格、交互单元格、链接与加粗保留递归实例。
+    expect(compiled.nodes[0].children.filter((node) => node.kind === 'static')).toHaveLength(40)
+    // 原生 rich-text 会再次解码实体，因此静态路径保留字面 &amp;。
+    expect(compiled.nodes[0].children.find((node) => node.kind === 'static')?.nativeNodes).toMatchObject([{ type: 'text', text: '文字 &amp; 实体' }])
     const wrapper = mount(WdRichText, { global, props: { content, selectable: true } })
-    // 40 行各保留行、两个单元格、链接、加粗，共 200 个实例；文本不另占实例。
-    expect(wrapper.findAllComponents({ name: 'wd-rich-text-node' }).length).toBeLessThanOrEqual(201)
-    expect(wrapper.find('.wd-rich-text__td').text()).toBe('文字 & 实体')
+    expect(wrapper.findAllComponents({ name: 'wd-rich-text-node' }).length).toBeLessThanOrEqual(122)
+    expect(wrapper.find('.wd-rich-text__td').classes()).toContain('wd-rich-text__static')
     expect(wrapper.findAll('.wd-rich-text__text').every((node) => node.attributes('selectable') === 'true')).toBe(true)
     await wrapper.setProps({ selectable: false })
     expect(wrapper.findAll('.wd-rich-text__text').every((node) => node.attributes('selectable') === 'false')).toBe(true)
