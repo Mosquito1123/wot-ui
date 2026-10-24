@@ -103,6 +103,8 @@ const inputValue = ref<string>('') // 输入框的值
 const textareaRef = ref<any>(null)
 // 触摸清空后短时间内忽略 click，避免 touchstart 与 click 各清空一次
 let ignoreClickUntil = 0
+// 回焦后补上 handleBlur 尚未走完的窗口。序号用来避免上一次的复位定时器清掉新一次清空的 clearing。
+let h5ClearBlurGuard = 0
 
 watch(
   () => props.focus,
@@ -205,17 +207,43 @@ function syncH5ClearedValue() {
   if (textarea) textarea.value = ''
 }
 
-/** 等待回焦的 100ms 内，焦点若已落到其他可聚焦控件上，就不再抢回来。 */
-function anotherControlHasFocus() {
-  if (typeof document === 'undefined') return false
-  const active = document.activeElement as HTMLElement | null
-  if (!active || active === document.body || active === document.documentElement) return false
+function readActiveElement() {
+  if (typeof document === 'undefined') return null
+  return document.activeElement
+}
+
+/** 以原生 textarea 是否持有焦点为准。focusing 要等 handleBlur 的 150ms，不能用来决定要不要回焦。 */
+function textareaHasNativeFocus() {
+  const textarea = getH5TextareaElement()
+  const active = readActiveElement()
+  if (!textarea || !active) return false
+  return active === textarea || textarea.contains(active)
+}
+
+function isOtherFocusableControl(active: Element | null) {
+  if (!active || typeof document === 'undefined') return false
+  if (active === document.body || active === document.documentElement) return false
 
   const textarea = getH5TextareaElement()
   if (textarea && (active === textarea || textarea.contains(active))) return false
-  if (typeof active.closest === 'function' && active.closest('.wd-textarea__clear, .wd-textarea__clear-trigger')) return false
-  if (typeof active.matches !== 'function') return false
-  return active.matches('input, textarea, select, button, a[href], [contenteditable="true"], [tabindex]:not([tabindex="-1"])')
+  const element = active as HTMLElement
+  if (typeof element.closest === 'function' && element.closest('.wd-textarea__clear, .wd-textarea__clear-trigger')) return false
+  if (typeof element.matches !== 'function') return false
+  return element.matches('input, textarea, select, button, a[href], [contenteditable="true"], [tabindex]:not([tabindex="-1"])')
+}
+
+/**
+ * 回焦会把 focused 置回 true。若此时 handleBlur 还在 150ms 等待里，它会把 focusing 清掉。
+ * 只在确实回焦时挡住这次在途 blur，并在窗口结束后自己复位，避免没有 blur 时 clearing 粘住。
+ */
+function holdClearingForInFlightBlur() {
+  const guard = ++h5ClearBlurGuard
+  clearing.value = true
+  // 回焦发生在清空后约 100ms，再留 80ms 盖住同时开始的 150ms blur。
+  void pause(80).then(() => {
+    if (guard !== h5ClearBlurGuard) return
+    clearing.value = false
+  })
 }
 
 /**
@@ -223,27 +251,31 @@ function anotherControlHasFocus() {
  * 已聚焦时不再把 focus 置 false 再置 true：切换发生时内部 state 往往还是旧长文本，
  * 重新 focus 会把内容滚进视口，表现为闪烁。按下图标时已 preventDefault 保住焦点。
  * 未聚焦且 focusWhenClear 为 true 时，等空值写入后再聚焦，避免聚焦到旧内容。
+ * 清空前焦点已在其他输入框上时仍要回焦；只有等待这 100ms 期间焦点转移到了别的控件才放弃。
  * 小程序 / App 仍走 focus 属性切换，因为那里无法用 preventDefault 保住键盘。
  */
 async function clearOnH5() {
   const shouldFocus = props.focusWhenClear
-  const wasFocusing = focusing.value
+  const wasNativelyFocused = textareaHasNativeFocus()
+  const activeBeforeWait = readActiveElement()
   focusing.value = false
   inputValue.value = ''
   await nextTick()
   syncH5ClearedValue()
 
-  if (shouldFocus && !wasFocusing) {
+  if (shouldFocus && !wasNativelyFocused) {
     // 比 uni-h5 的 100ms debounce 略晚，确保 focus 切换时内部值已是空字符串。
-    // 此路径没有可消费 clearing 的原生 blur，不能把 clearing 置 true，否则会吞掉之后真正的失焦校验。
     await pause(100)
     syncH5ClearedValue()
-    if (!anotherControlHasFocus()) {
+    const activeAfterWait = readActiveElement()
+    const focusMovedDuringWait = activeAfterWait !== activeBeforeWait && isOtherFocusableControl(activeAfterWait)
+    if (!focusMovedDuringWait) {
       if (focused.value) {
         focused.value = false
         await nextTick()
         syncH5ClearedValue()
       }
+      holdClearingForInFlightBlur()
       focused.value = true
       focusing.value = true
     }

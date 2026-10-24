@@ -11,6 +11,15 @@ async function flushClear(wrapper: ReturnType<typeof mount>) {
   await pending
 }
 
+/** 组件把 :focus 写到了 DOM 属性上，会盖住 HTMLElement.focus / blur。 */
+function focusNative(element: HTMLElement) {
+  HTMLElement.prototype.focus.call(element)
+}
+
+function blurNative(element: HTMLElement) {
+  HTMLElement.prototype.blur.call(element)
+}
+
 describe('WdTextarea', () => {
   // 测试基本渲染
   test('基本渲染', () => {
@@ -284,19 +293,22 @@ describe('WdTextarea', () => {
         focusWhenClear: true,
         maxlength: 120,
         showWordLimit: true
-      }
+      },
+      attachTo: document.body
     })
 
+    const textarea = wrapper.find('textarea').element as HTMLTextAreaElement
+    focusNative(textarea)
     await (wrapper.vm as any).handleFocus({ detail: { value: longText } })
     expect((wrapper.vm as any).focusing).toBe(true)
     expect((wrapper.vm as any).focused).toBe(false)
+    if (isH5) expect(document.activeElement).toBe(textarea)
 
     await flushClear(wrapper)
 
     const emitted = wrapper.emitted() as Record<string, any[]>
     expect(emitted['clear']).toBeTruthy()
     expect(emitted['update:modelValue'][emitted['update:modelValue'].length - 1][0]).toBe('')
-    const textarea = wrapper.find('textarea').element as HTMLTextAreaElement
     expect(textarea.value).toBe('')
     // H5 保住当前焦点，不再 false→true；小程序/App 仍用 focus 属性重新聚焦
     expect((wrapper.vm as any).focused).toBe(!isH5)
@@ -311,6 +323,7 @@ describe('WdTextarea', () => {
       expect(blurEvents?.[0]?.[0]).toEqual({ value: '', cursor: 3 })
     }
 
+    wrapper.unmount()
     vi.useRealTimers()
   })
 
@@ -361,28 +374,100 @@ describe('WdTextarea', () => {
     vi.useRealTimers()
   })
 
-  test('H5 回焦前若焦点已在其他控件上则不再抢回', async () => {
+  test('其他输入框已聚焦时清空仍会回焦到 Textarea', async () => {
     vi.useFakeTimers()
     const other = document.createElement('input')
     document.body.appendChild(other)
-    other.focus()
-
     const wrapper = mount(WdTextarea, {
       props: {
         modelValue: 'abc',
         clearable: true,
         clearTrigger: 'always',
         focusWhenClear: true
-      }
+      },
+      attachTo: document.body
     })
+    other.focus()
+    expect(document.activeElement).toBe(other)
 
     await flushClear(wrapper)
+
+    expect((wrapper.vm as any).focused).toBe(true)
+    expect((wrapper.vm as any).focusing).toBe(true)
+    expect((wrapper.emitted('update:modelValue') as any[]).at(-1)[0]).toBe('')
     if (isH5) {
-      expect((wrapper.vm as any).focused).toBe(false)
-      expect(document.activeElement).toBe(other)
+      expect((wrapper.find('textarea').element as HTMLTextAreaElement).value).toBe('')
     }
 
+    wrapper.unmount()
     other.remove()
+    vi.useRealTimers()
+  })
+
+  test('H5 等待回焦期间焦点转到其他控件则不再抢回', async () => {
+    vi.useFakeTimers()
+    const other = document.createElement('input')
+    document.body.appendChild(other)
+    const wrapper = mount(WdTextarea, {
+      props: {
+        modelValue: 'abc',
+        clearable: true,
+        clearTrigger: 'always',
+        focusWhenClear: true
+      },
+      attachTo: document.body
+    })
+
+    const pending = (wrapper.vm as any).handleClear()
+    other.focus()
+    await vi.advanceTimersByTimeAsync(200)
+    await pending
+
+    if (isH5) {
+      expect((wrapper.vm as any).focused).toBe(false)
+      expect((wrapper.vm as any).focusing).toBe(false)
+      expect(document.activeElement).toBe(other)
+    } else {
+      expect((wrapper.vm as any).focused).toBe(true)
+    }
+    expect((wrapper.emitted('update:modelValue') as any[]).at(-1)[0]).toBe('')
+
+    wrapper.unmount()
+    other.remove()
+    vi.useRealTimers()
+  })
+
+  test('失焦处理尚未完成时清空仍会回焦', async () => {
+    vi.useFakeTimers()
+    const wrapper = mount(WdTextarea, {
+      props: {
+        modelValue: 'abc',
+        clearable: true,
+        clearTrigger: 'always',
+        focusWhenClear: true
+      },
+      attachTo: document.body
+    })
+
+    const textarea = wrapper.find('textarea').element as HTMLTextAreaElement
+    focusNative(textarea)
+    await (wrapper.vm as any).handleFocus({ detail: { value: 'abc' } })
+    expect((wrapper.vm as any).focusing).toBe(true)
+    expect(document.activeElement).toBe(textarea)
+
+    blurNative(textarea)
+    // 原生 blur 会进入 handleBlur，但 150ms 内 focusing 仍为 true
+    expect((wrapper.vm as any).focusing).toBe(true)
+    expect(document.activeElement).not.toBe(textarea)
+
+    await flushClear(wrapper)
+
+    expect((wrapper.vm as any).focused).toBe(true)
+    expect((wrapper.vm as any).focusing).toBe(true)
+    expect((wrapper.emitted('update:modelValue') as any[]).at(-1)[0]).toBe('')
+    expect(wrapper.emitted('blur')).toBeFalsy()
+
+    wrapper.unmount()
     vi.useRealTimers()
   })
 
