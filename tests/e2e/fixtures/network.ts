@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { Page } from '@playwright/test'
 
-const image = readFileSync(resolve('src/subPages/img/black_mao.png'))
+const image = readFileSync(resolve('src/subPages/static/images/black-mao.png'))
 const video = readFileSync(resolve('tests/e2e/fixtures/assets/sample.mp4'))
 // 本地生成一秒 PCM 静音，固定富文本音频资源，避免访问外部服务。
 const audio = Buffer.alloc(44 + 16000)
@@ -38,7 +38,7 @@ export async function mockDemoAssets(page: Page, baseURL: string) {
     (route) => route.fulfill({ status: 200, contentType: 'image/png', body: image, headers: { 'access-control-allow-origin': '*' } })
   )
   await page.route('https://images.unsplash.com/photo-1536686984648-9bcaa70abf45?*', (route) =>
-    route.fulfill({ status: 200, contentType: 'image/jpeg', body: readFileSync(resolve('src/subPages/richText/assets/journal-lake.jpg')) })
+    route.fulfill({ status: 200, contentType: 'image/jpeg', body: readFileSync(resolve('src/subPages/static/rich-text/journal-lake.jpg')) })
   )
   // Img Demo 刻意展示加载失败；使用不可解码的本地响应保留错误态，不访问不存在的域名。
   await page.route('https://www.123.wot.com/a.jpg', (route) => route.fulfill({ status: 200, contentType: 'image/png', body: 'invalid-image' }))

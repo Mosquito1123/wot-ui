@@ -107,7 +107,7 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { QrCodeInstance } from '@/uni_modules/wot-ui/components/wd-qr-code/types'
-import blackMao from '../img/black_mao_square.png'
+import blackMao from '../static/images/black-mao-square.png'
 
 const { t } = useI18n()
 

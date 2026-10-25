@@ -42,7 +42,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import blackMao from '../img/black_mao.png'
+import blackMao from '../static/images/black-mao.png'
 
 const { t } = useI18n()
 

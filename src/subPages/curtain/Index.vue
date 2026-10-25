@@ -49,7 +49,7 @@
 
 <script lang="ts" setup>
 import { ref } from 'vue'
-import blackMao from '../img/black_mao_1.png'
+import blackMao from '../static/images/black-mao-1.png'
 
 const img = blackMao
 const link = ref<string>('/pages/index/index')

@@ -91,8 +91,8 @@
 </template>
 <script lang="ts" setup>
 import type { ImageMode } from '@/uni_modules/wot-ui/components/wd-img/types'
-import blackMao from './black_mao.png'
-import blackMaoPreview from './black_mao_1.png'
+import blackMao from '../static/images/black-mao.png'
+import blackMaoPreview from '../static/images/black-mao-1.png'
 
 const imgURL = blackMao
 const previewURL = blackMaoPreview

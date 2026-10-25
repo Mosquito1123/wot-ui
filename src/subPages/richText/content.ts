@@ -1,4 +1,4 @@
-import journalCover from './assets/journal-lake.jpg'
+import journalCover from '../static/rich-text/journal-lake.jpg'
 
 export { journalCover }
 

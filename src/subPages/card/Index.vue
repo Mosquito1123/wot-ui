@@ -218,7 +218,7 @@
 </template>
 
 <script lang="ts" setup>
-import blackMao from '../img/black_mao.png'
+import blackMao from '../static/images/black-mao.png'
 </script>
 
 <style lang="scss" scoped>

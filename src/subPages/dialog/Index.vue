@@ -121,7 +121,7 @@
 import { useDialog, useToast } from '@/uni_modules/wot-ui'
 import { ref } from 'vue'
 
-import blackMao from '../img/black_mao.png'
+import blackMao from '../static/images/black-mao.png'
 
 const rate = ref<number>(1)
 

@@ -1,7 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test'
 import { resolve } from 'node:path'
 
-export const sampleImage = resolve('src/subPages/img/black_mao.png')
+export const sampleImage = resolve('src/subPages/static/images/black-mao.png')
 
 export async function chooseImage(page: Page, trigger: Locator) {
   const chooser = page.waitForEvent('filechooser')

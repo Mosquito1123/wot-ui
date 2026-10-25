@@ -12,7 +12,7 @@
 <script lang="ts" setup>
 import { onLoad, onReachBottom } from '@dcloudio/uni-app'
 import { ref } from 'vue'
-import blackMao from '../img/black_mao.png'
+import blackMao from '../static/images/black-mao.png'
 
 const state = ref<any>('loading')
 const num = ref<number>(0)

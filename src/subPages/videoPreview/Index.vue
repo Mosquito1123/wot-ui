@@ -32,7 +32,7 @@
 import { type PreviewVideo, type VideoPreviewInstance, type VideoPreviewOptions } from '@/uni_modules/wot-ui/components/wd-video-preview/types'
 import { useVideoPreview } from '@/uni_modules/wot-ui/components/wd-video-preview'
 import { computed, ref } from 'vue'
-import blackMao from '../img/black_mao.png'
+import blackMao from '../static/images/black-mao.png'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()

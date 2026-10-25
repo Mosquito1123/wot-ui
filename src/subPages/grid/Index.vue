@@ -183,7 +183,7 @@
 </template>
 <script lang="ts" setup>
 import { useToast } from '@/uni_modules/wot-ui'
-import blackMao from '../img/black_mao.png'
+import blackMao from '../static/images/black-mao.png'
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
