@@ -1,6 +1,53 @@
 # 更新日志 
 
 
+## [2.4.0](https://github.com/wot-ui/wot-ui/compare/v2.3.2...v2.4.0) (2026-10-25)
+
+
+### 🐛 Bug Fixes | Bug 修复
+
+* 🐛 调整滑动验证示例布局，避免误触侧滑返回 ([#148](https://github.com/wot-ui/wot-ui/issues/148)) ([c847cfe](https://github.com/wot-ui/wot-ui/commit/c847cfec4be99d3b9fd2f3e77ddba18d5eabf073)), closes [#3](https://github.com/wot-ui/wot-ui/issues/3)
+* 🐛 修复 App 端 root portal 页面跳转报错 ([#126](https://github.com/wot-ui/wot-ui/issues/126)) ([#146](https://github.com/wot-ui/wot-ui/issues/146)) ([8405c13](https://github.com/wot-ui/wot-ui/commit/8405c1378006e39f3fe8ac978b75b729c3ae3c42))
+* 🐛 修复 Dialog 组件内置图标样式权重不足的问题 ([#140](https://github.com/wot-ui/wot-ui/issues/140)) ([6f947ad](https://github.com/wot-ui/wot-ui/commit/6f947ad16ca09d6dfa990b4cf1dacd65b602a87c))
+* 🐛 修复 InputNumber 加减按钮点击事件冒泡的问题 ([#141](https://github.com/wot-ui/wot-ui/issues/141)) ([2f34fc9](https://github.com/wot-ui/wot-ui/commit/2f34fc9e6d6316e09b4c3792d50b7d88ae915fb4)), closes [#133](https://github.com/wot-ui/wot-ui/issues/133)
+* 🐛 修复 QRCode 的 web-types 组件名错误 ([#144](https://github.com/wot-ui/wot-ui/issues/144)) ([5dbafbb](https://github.com/wot-ui/wot-ui/commit/5dbafbb0b0877df1799487849fb4d83e3c9d6b71)), closes [#142](https://github.com/wot-ui/wot-ui/issues/142)
+* 🐛 修复 Tabs 导航地图长标题溢出 ([#147](https://github.com/wot-ui/wot-ui/issues/147)) ([ddbc4e8](https://github.com/wot-ui/wot-ui/commit/ddbc4e86e9dd593478eafe1c18f2c3c5433e3e76)), closes [#129](https://github.com/wot-ui/wot-ui/issues/129)
+* 🐛 修复 Tag plain 变体自定义边框色 ([#143](https://github.com/wot-ui/wot-ui/issues/143)) ([50ed92c](https://github.com/wot-ui/wot-ui/commit/50ed92c4e48afaab3c99f2b233e347b64d64fcb0)), closes [#139](https://github.com/wot-ui/wot-ui/issues/139)
+* 🐛 修复骨架屏动画延迟两秒启动的问题 ([#150](https://github.com/wot-ui/wot-ui/issues/150)) ([46bc8f4](https://github.com/wot-ui/wot-ui/commit/46bc8f4d6e9dd7c7b0310d51a1fdd1806b009755))
+* 🐛 Rate 兼容低版本 iOS 渐变图标显示 ([#164](https://github.com/wot-ui/wot-ui/issues/164)) ([8b1902a](https://github.com/wot-ui/wot-ui/commit/8b1902a309d24fa60cb7404ff7e673f0d636766f))
+* 🐛 web-types 元数据不再把 v-model 写成属性名 ([#153](https://github.com/wot-ui/wot-ui/issues/153)) ([48d3710](https://github.com/wot-ui/wot-ui/commit/48d37108969f7218e3181c0a623e24ad7a664eed)), closes [#118](https://github.com/wot-ui/wot-ui/issues/118)
+* 修复 SelectPicker 中文 value 滚动定位报错 ([#162](https://github.com/wot-ui/wot-ui/issues/162)) ([42a08c3](https://github.com/wot-ui/wot-ui/commit/42a08c380e823f1398a28fa17a1ae828ad8c4069)), closes [#154](https://github.com/wot-ui/wot-ui/issues/154)
+* 修复 useUpload 图片类型推断不匹配 ([08e8b8c](https://github.com/wot-ui/wot-ui/commit/08e8b8c41a8519ee4cd40f2694bd30de50067d22))
+* 修复 wd-img 首图失败后更新 src 仍显示错误图标 ([#177](https://github.com/wot-ui/wot-ui/issues/177)) ([486d06d](https://github.com/wot-ui/wot-ui/commit/486d06d77dae55b27763f65ab27ab90098d7bf07))
+* 修复文档中仓库地址错误分支 (master 改为 main) ([#183](https://github.com/wot-ui/wot-ui/issues/183)) ([5ce8f70](https://github.com/wot-ui/wot-ui/commit/5ce8f7076710aae30ab5e101269c7e6c076e4f3a))
+* 修复wd-count-to 组件custom-style未绑定问题 Fixes [#172](https://github.com/wot-ui/wot-ui/issues/172) ([#173](https://github.com/wot-ui/wot-ui/issues/173)) ([cb907e9](https://github.com/wot-ui/wot-ui/commit/cb907e9014779776aa56151b06e7359cf3f27ce9))
+* bind custom-style on wd-count-to ([#175](https://github.com/wot-ui/wot-ui/issues/175)) ([58d027d](https://github.com/wot-ui/wot-ui/commit/58d027dc708c618d35b9f44598fd1f43335d3c28)), closes [#172](https://github.com/wot-ui/wot-ui/issues/172)
+* **docs:** 使用仓库图片修复 README 展示 ([#190](https://github.com/wot-ui/wot-ui/issues/190)) ([bd7daf5](https://github.com/wot-ui/wot-ui/commit/bd7daf5dc6f264ae8f3571304ad5a77366ae6b76))
+* **docs:** 同步赞助商并限制图片宽度 ([#191](https://github.com/wot-ui/wot-ui/issues/191)) ([a5e8dcc](https://github.com/wot-ui/wot-ui/commit/a5e8dccb270593a127bf2cd0f535d3c7b65b861d))
+* **docs:** 修正行尾注释导致的 CSS 变量说明错位 ([#200](https://github.com/wot-ui/wot-ui/issues/200)) ([4437b5e](https://github.com/wot-ui/wot-ui/commit/4437b5eaf5aef4f93c58c237fe17266a7e6e40c0))
+* **img-cropper:** 修复宽屏下裁剪页白屏 ([#198](https://github.com/wot-ui/wot-ui/issues/198)) ([fe4d5b4](https://github.com/wot-ui/wot-ui/commit/fe4d5b46f4f052d60f44dc7c5e1a561ce172a7d1))
+* **swiper:** 导出严格的指示器配置类型并补充用法 ([#192](https://github.com/wot-ui/wot-ui/issues/192)) ([2cf4733](https://github.com/wot-ui/wot-ui/commit/2cf47339678dad156ed4cdd4e187b9e84472d47e)), closes [#181](https://github.com/wot-ui/wot-ui/issues/181)
+* **table:** 修复虚拟滚动插槽复用、万行定位与滚动闪烁 ([#195](https://github.com/wot-ui/wot-ui/issues/195)) ([28f9f2b](https://github.com/wot-ui/wot-ui/commit/28f9f2b540897a7f49141c5fd82a3e631e4cbd96))
+* **tabs:** 修复数字名称绑定和滑动边界处理 ([#186](https://github.com/wot-ui/wot-ui/issues/186)) ([8923b95](https://github.com/wot-ui/wot-ui/commit/8923b9544563232144eb1816c1deb647d18d1f99)), closes [#120](https://github.com/wot-ui/wot-ui/issues/120) [#121](https://github.com/wot-ui/wot-ui/issues/121) [#120](https://github.com/wot-ui/wot-ui/issues/120) [#121](https://github.com/wot-ui/wot-ui/issues/121)
+
+
+### ✨ Features | 新功能
+
+* ✨ 新增条形码组件 ([#88](https://github.com/wot-ui/wot-ui/issues/88)) ([7c08fea](https://github.com/wot-ui/wot-ui/commit/7c08feadf50ca5fd6a9e235b2bcc3aeee85a3c8e))
+* **rich-text:** 新增多端富文本组件及交互示例 ([#199](https://github.com/wot-ui/wot-ui/issues/199)) ([8c73ef8](https://github.com/wot-ui/wot-ui/commit/8c73ef842fa9232385b42ce65bd0e76d98dc8e7f))
+* **Search:** 新增 type 属性支持设置输入框类型 ([#182](https://github.com/wot-ui/wot-ui/issues/182)) ([a6e3dcf](https://github.com/wot-ui/wot-ui/commit/a6e3dcfdc53bd1ddd714155afc213e01502a1f6c))
+
+
+### ✏️ Documentation | 文档
+
+* ✏️  添加图标迁移的 skill 参考资料 ([04cc866](https://github.com/wot-ui/wot-ui/commit/04cc8664b859f58d17ad29688bc55bade2e8f288)), closes [#59](https://github.com/wot-ui/wot-ui/issues/59)
+* ✏️  为组件文档增加贡献者展示 ([#159](https://github.com/wot-ui/wot-ui/issues/159)) ([7f9b5a7](https://github.com/wot-ui/wot-ui/commit/7f9b5a766a7a3fbdafcfb07579ffb319b24bf669))
+* ✏️  优化 wwwads 占位展示 ([#161](https://github.com/wot-ui/wot-ui/issues/161)) ([71cff41](https://github.com/wot-ui/wot-ui/commit/71cff41741f6b923c7e605021dad09643326560a))
+* 规范组件文档并修正签名 E2E 比较方式 ([#202](https://github.com/wot-ui/wot-ui/issues/202)) ([d9e5bf6](https://github.com/wot-ui/wot-ui/commit/d9e5bf6a563e38879073a581d4ff0ca24fac24ec))
+* 增加赞助商展示 ([0abe2c2](https://github.com/wot-ui/wot-ui/commit/0abe2c2a186bb2892771b383d2234290b21053c9))
+* **changelog:** 修复文档中的拼写错误 ([#157](https://github.com/wot-ui/wot-ui/issues/157)) ([450a435](https://github.com/wot-ui/wot-ui/commit/450a435ff7d121224eec9b8e9f47982acb3792c1))
+* update mini program QR codes ([36bd9c6](https://github.com/wot-ui/wot-ui/commit/36bd9c66a4e1246159b05b5e426b2d29a5cc05b7))
+
 ### [2.3.2](https://github.com/wot-ui/wot-ui/compare/v2.3.1...v2.3.2) (2026-08-10)
 
 

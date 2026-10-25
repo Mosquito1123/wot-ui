@@ -206,7 +206,7 @@ function changeSearchType({ item }) {
 | Parameter | Description | Type | Default Value |
 | --- | --- | --- | --- |
 | v-model | Input box content, two-way binding | `string` | `''` |
-| type ^($LOWEST_VERSION$) | Input box type, optional values are `text`, `number`, `digit`, `idcard`, `safe-password`, `nickname`, `tel` | `InputType` | `text` |
+| type ^(2.4.0) | Input box type, optional values are `text`, `number`, `digit`, `idcard`, `safe-password`, `nickname`, `tel` | `InputType` | `text` |
 | custom-input-class | Custom input box class name | `string` | `''` |
 | placeholder | Search box placeholder text | `string` | `'Search'` |
 | cancel-txt | Search box right text | `string` | `'Cancel'` |

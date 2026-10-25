@@ -207,7 +207,7 @@ function changeSearchType({ item }) {
 | 参数 | 说明 | 类型 | 默认值 |
 | --- | --- | --- | --- |
 | v-model | 输入框内容，双向绑定 | `string` | `''` |
-| type ^($LOWEST_VERSION$) | 输入框类型，可选值为 `text`、`number`、`digit`、`idcard`、`safe-password`、`nickname`、`tel` | `InputType` | `text` |
+| type ^(2.4.0) | 输入框类型，可选值为 `text`、`number`、`digit`、`idcard`、`safe-password`、`nickname`、`tel` | `InputType` | `text` |
 | custom-input-class | 自定义输入框类名 | `string` | `''` |
 | placeholder | 搜索框占位文本 | `string` | `'搜索'` |
 | cancel-txt | 搜索框右侧文本 | `string` | `'取消'` |

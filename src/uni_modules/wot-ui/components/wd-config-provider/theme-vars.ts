@@ -1423,6 +1423,16 @@ export type resizeThemeVars = {
   resizeWrapperZIndex?: string // wrapper 层级
 }
 
+export type richTextThemeVars = {
+  richTextColor?: string
+  richTextFontSize?: string
+  richTextImageStateBg?: string
+  richTextImageStateColor?: string
+  richTextImageStateMinHeight?: string
+  richTextLineHeight?: string
+  richTextVideoHeight?: string
+}
+
 export type searchThemeVars = {
   searchBg?: string // 组件容器背景色 (filled)
   searchBlockMarginRight?: string // block 向右间距
@@ -1759,6 +1769,7 @@ export type tableThemeVars = {
   tableCellLineHeight?: string // 单元格行高
   tableCellPadding?: string // 单元格内边距
   tableColor?: string // 表格文字颜色
+  tableScrollClipInset?: string // 滚动视口上下裁剪内缩量
   tableShadowGradient?: string // 固定列阴影渐变背景
   tableSortButtonHeight?: string // 排序按钮高度
   tableStripeBg?: string // 斑马纹背景色
@@ -2045,6 +2056,7 @@ export type ConfigProviderThemeVars = baseThemeVars &
   radioThemeVars &
   rateThemeVars &
   resizeThemeVars &
+  richTextThemeVars &
   searchThemeVars &
   segmentedThemeVars &
   selectPickerThemeVars &
