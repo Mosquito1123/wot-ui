@@ -126,3 +126,18 @@ If you are a `vibe coding` user, we also provide [Skills](https://github.com/wot
 - [useConfigProvider](/en-US/component/use-config-provider)
 - [UnoCSS Preset](/en-US/guide/unocss-preset)
 - [Dark Mode](/en-US/guide/dark-mode)
+
+
+### Glass theme usage
+
+```scss
+@use '@wot-ui/ui/styles/theme/index.scss' as *;
+@use './theme/presets.scss' as *;
+
+page,
+.wd-root-portal {
+  @include glass-theme-vars();
+}
+```
+
+Use `glass-dark-theme-vars()` for dark mode. The glass effect relies on `backdrop-filter` and degrades to a translucent solid surface where unsupported.

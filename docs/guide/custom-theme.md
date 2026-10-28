@@ -116,6 +116,21 @@ const themeVars = reactive<ConfigProviderThemeVars>({
 ```
 :::
 
+
+### Glass 主题使用示例
+
+```scss [App.vue]
+@use '@wot-ui/ui/styles/theme/index.scss' as *;
+@use './theme/presets.scss' as *;
+
+page,
+.wd-root-portal {
+  @include glass-theme-vars();
+}
+```
+
+深色模式可切换为 `glass-dark-theme-vars()`。玻璃效果依赖 `backdrop-filter`，不支持的端会退化为半透明纯色表面。
+
 ### Skills
 如果你是 `vibe coding` 用户，我们也提供了 [Skills](https://github.com/wot-ui/wot-ui/tree/main/.agents/skills/generate-theme) 用于帮助开发者生成自定义主题，欢迎使用。
 
