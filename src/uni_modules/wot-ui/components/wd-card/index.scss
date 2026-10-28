@@ -1,4 +1,5 @@
 @use '../../styles/mixin/mixin.scss'as *;
+@use '../../styles/mixin/glass.scss'as *;
 @use '../../styles/variable.scss'as *;
 
 // 卡片背景色
@@ -104,10 +105,6 @@ $card-footer-border-color: var(--wot-card-footer-border-color, $border-main) !de
 
 
   @include m(glass) {
-    background-color: var(--wot-glass-surface, rgba(255, 255, 255, 0.25));
-    backdrop-filter: blur(var(--wot-glass-blur, 12px)) saturate(var(--wot-glass-saturate, 180%));
-    -webkit-backdrop-filter: blur(var(--wot-glass-blur, 12px)) saturate(var(--wot-glass-saturate, 180%));
-    border: 1px solid var(--wot-border-main, rgba(255, 255, 255, 0.3));
-    box-shadow: var(--wot-glass-shadow, 0 8px 32px 0 rgba(15, 23, 42, 0.12));
+    @include glass;
   }
 }
