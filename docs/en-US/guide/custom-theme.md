@@ -141,3 +141,23 @@ page,
 ```
 
 Use `glass-dark-theme-vars()` for dark mode. The glass effect relies on `backdrop-filter` and degrades to a translucent solid surface where unsupported.
+
+
+### Glass on any component
+
+Components without a `glass` prop can use the global `.wd-glass` utility class or `custom-class`:
+
+```html
+<view class="wd-glass">Any container</view>
+<wd-cell title="Glass cell" custom-class="wd-glass"></wd-cell>
+```
+
+Or reuse the shared mixin in your own styles:
+
+```scss
+@use '@wot-ui/ui/styles/mixin/glass.scss' as *;
+
+.my-panel {
+  @include glass;
+}
+```
