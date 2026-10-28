@@ -52,6 +52,10 @@ $tooltip-line-height: var(--wot-tooltip-line-height, $typography-body-line-heigh
     box-shadow: $tooltip-box-shadow;
     border-radius: $tooltip-radius;
     background: $tooltip-bg;
+
+    &.wd-tooltip--glass {
+      @include glass;
+    }
   }
 
   @include e(inner) {
