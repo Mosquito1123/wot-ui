@@ -72,7 +72,9 @@ const themeVars = reactive<ConfigProviderThemeVars>({
 
 如果你需要维护多套可复用主题，例如品牌 A、品牌 B，又或者想要动态切换主题，建议使用独立的 SCSS 主题文件来组织。
 
-当前我们在 [src/theme/presets.scss](https://github.com/wot-ui/wot-ui/tree/main/src/theme/presets.scss) 中提供了多个主题的示例，包含 `shadcn`、`cartoon`、`illustration`、`nutui`、`vant`、`tdesign` 等主题。
+当前我们在 [src/theme/presets.scss](https://github.com/wot-ui/wot-ui/tree/main/src/theme/presets.scss) 中提供了多个主题的示例，包含 `shadcn`、`cartoon`、`illustration`、`nutui`、`vant`、`tdesign`、`glass` 等主题。
+
+`glass` 主题为毛玻璃（glassmorphism）风格预设，基于半透明表面与 `backdrop-filter` 实现，适合需要模糊背景的卡片、弹层与导航栏场景；在不支持 `backdrop-filter` 的端上会自动退化为半透明纯色表面。
 ::: code-group
 ```scss [css]
 /* src/theme/brand-a.scss */

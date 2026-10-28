@@ -597,3 +597,96 @@
 .wot-theme-illustration .wd-root-portal {
   @include illustration-theme-vars();
 }
+@mixin glass-theme-vars {
+  /* Glass (glassmorphism) light semantic tokens */
+  /* Translucent surfaces for backdrop-filter based glass effect */
+  --wot-primary-1: #FFFFFF66;
+  --wot-primary-2: #FFFFFF4D;
+  --wot-primary-3: #FFFFFF33;
+  --wot-primary-4: #FFFFFF1F;
+  --wot-primary-5: #3B82F6CC;
+  --wot-primary-6: #2563EBFF;
+  --wot-primary-7: #1D4ED8FF;
+  --wot-primary-8: #1E40AFFF;
+  --wot-primary-9: #1E3A8AFF;
+  --wot-primary-10: #172554FF;
+
+  --wot-danger-main: #EF4444CC;
+  --wot-danger-hover: #F87171FF;
+  --wot-danger-clicked: #DC2626FF;
+  --wot-danger-disabled: #FCA5A566;
+  --wot-danger-particular: #FECACAFF;
+  --wot-danger-surface: #FFFFFF4D;
+
+  --wot-success-main: #22C55ECC;
+  --wot-success-hover: #4ADE80FF;
+  --wot-success-clicked: #16A34AFF;
+  --wot-success-disabled: #BBF7D066;
+  --wot-success-particular: #DCFCE7FF;
+  --wot-success-surface: #FFFFFF4D;
+
+  --wot-warning-main: #F59E0BCC;
+  --wot-warning-hover: #FBBF24FF;
+  --wot-warning-clicked: #D97706FF;
+  --wot-warning-disabled: #FDE68A66;
+  --wot-warning-particular: #FEF3C7FF;
+  --wot-warning-surface: #FFFFFF4D;
+
+  --wot-text-main: #0F172AFF;
+  --wot-text-secondary: #334155CC;
+  --wot-text-auxiliary: #64748BCC;
+  --wot-text-disabled: #94A3B880;
+  --wot-text-placeholder: #94A3B8CC;
+  --wot-text-white: #FFFFFFFF;
+
+  --wot-icon-main: #0F172AFF;
+  --wot-icon-secondary: #334155CC;
+  --wot-icon-auxiliary: #64748BCC;
+  --wot-icon-disabled: #94A3B880;
+  --wot-icon-placeholder: #94A3B8CC;
+  --wot-icon-white: #FFFFFFFF;
+
+  --wot-border-extra-strong: #FFFFFF66;
+  --wot-border-strong: #FFFFFF4D;
+  --wot-border-main: #FFFFFF33;
+  --wot-border-light: #FFFFFF1F;
+  --wot-border-white: #FFFFFFFF;
+  --wot-border-zero: transparent;
+
+  --wot-filled-extra-strong: #FFFFFF4D;
+  --wot-filled-strong: #FFFFFF33;
+  --wot-filled-content: #FFFFFF1F;
+  --wot-filled-bottom: #FFFFFF0F;
+  --wot-filled-oppo: #FFFFFFFF;
+  --wot-filled-zero: transparent;
+
+  --wot-divider-main: #00000014;
+  --wot-divider-light: #0000000A;
+  --wot-divider-strong: #00000026;
+  --wot-divider-white: #FFFFFFFF;
+
+  --wot-feedback-hover: #FFFFFF1F;
+  --wot-feedback-active: #FFFFFF33;
+  --wot-feedback-accent: #2563EB26;
+
+  --wot-opacfilled-tooltip-toast-cover: #0F172ABF;
+  --wot-opacfilled-main-cover: #0F172A8C;
+  --wot-opacfilled-light-cover: #0F172A4D;
+
+  --wot-picker-view-mask-start-color: #FFFFFFD9;
+  --wot-picker-view-mask-end-color: #FFFFFF33;
+
+  /* Glass effect helpers */
+  --wot-glass-blur: 12px;
+  --wot-glass-saturate: 180%;
+  --wot-glass-shadow: 0 8px 32px 0 rgba(15, 23, 42, 0.12);
+}
+
+.wot-theme-glass,
+.wot-theme-glass .wd-root-portal {
+  @include glass-theme-vars();
+  backdrop-filter: blur(var(--wot-glass-blur)) saturate(var(--wot-glass-saturate));
+  -webkit-backdrop-filter: blur(var(--wot-glass-blur)) saturate(var(--wot-glass-saturate));
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.05));
+  box-shadow: var(--wot-glass-shadow);
+}

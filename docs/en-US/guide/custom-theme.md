@@ -73,6 +73,8 @@ If you only want to adjust a specific component, you can also directly override 
 If you need to maintain multiple reusable themes, such as Brand A, Brand B, or want to dynamically switch themes, it is recommended to organize them using independent SCSS theme files.
 
 Currently, we provide examples of multiple themes in [src/theme/presets.scss](https://github.com/wot-ui/wot-ui/tree/main/src/theme/presets.scss), including `shadcn`, `cartoon`, `illustration`, `nutui`, `vant`, `tdesign` and other themes.
+
+The `glass` theme is a glassmorphism preset built on translucent surfaces and `backdrop-filter`. It degrades to a translucent solid surface on platforms without `backdrop-filter` support.
 ::: code-group
 ```scss [css]
 /* src/theme/brand-a.scss */
